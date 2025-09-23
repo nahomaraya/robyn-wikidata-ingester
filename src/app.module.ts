@@ -9,6 +9,7 @@ import { WikidataModule } from './wikidata/wikidata.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
+import { HttpModule } from '@nestjs/axios';
 import authConfig from './config/auth.config';
 import supabaseConfig from './config/supabase.config';
 import wikidataConfig from './config/wikidata.config';
