@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommonsService } from './commons/commons.service';
@@ -21,6 +21,6 @@ import wikidataConfig from './config/wikidata.config';
     }),
     IngestionModule, CommonsModule, WikidataModule,  SupabaseModule, AuthModule],
   controllers: [AppController],
-  providers: [AppService, CommonsService, IngestionService],
+  providers: [AppService, CommonsService, IngestionService, Logger],
 })
 export class AppModule {}

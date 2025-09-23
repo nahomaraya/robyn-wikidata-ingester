@@ -1,14 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ConsoleLogger } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule,{
+      cors: true,
+      logger: ['error', 'warn', 'log']  
+  });
   const config = new DocumentBuilder()
-  .setTitle('Cats example')
-  .setDescription('The cats API description')
+  .setTitle('Wiki Apis')
+  .setDescription('some description')
   .setVersion('1.0')
-  .addTag('cats')
+  .addTag('wiki apis')
   .build();
 
   const documentFactory = () => SwaggerModule.createDocument(app, config);
