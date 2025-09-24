@@ -9,6 +9,9 @@ export class SparqlService {
 
   constructor(private readonly httpService: HttpService) {}
 
+  
+  
+  
   async queryItems(): Promise<any> {
     this.logger.log('SPARQL method called');
     const sparqlQuery = `
@@ -38,7 +41,7 @@ export class SparqlService {
       this.logger.log(`SPARQL response status: ${response.status}`);
       this.logger.log(`SPARQL response data: ${JSON.stringify(response.data)}`);
 
-      return response.data;
+      return response.data["results"]["bindings"];
     } catch (error) {
       this.logger.error(`SPARQL query failed: ${error.message}`, error.stack);
 
@@ -51,6 +54,42 @@ export class SparqlService {
         `Failed to query SPARQL endpoint: ${error.message}`,
         500,
       );
+    }
+  }
+
+  async getItemName(itemId: string): Promise<{ id: string; name: string; desc?: string }> {
+    this.logger.log(`Fetching label for item: ${itemId}`);
+
+    const sparqlQuery = `
+      SELECT ?item ?itemLabel ?itemDescription
+      WHERE {
+        VALUES ?item { wd:${itemId} }
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+      }
+    `;
+
+    const fullUrl = this.sparqlUrl + '?query=' + encodeURIComponent(sparqlQuery);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(fullUrl, {
+          headers: { Accept: 'application/sparql-results+json' },
+        }),
+      );
+
+      const bindings = response.data?.results?.bindings ?? [];
+      if (bindings.length === 0) {
+        this.logger.warn(`No label found for item: ${itemId}`);
+        return { id: itemId, name: '', desc: '' };
+      }
+
+      const itemLabel = bindings[0]?.itemLabel?.value ?? '';
+      const itemDesc = bindings[0]?.itemDescription?.value ?? '';
+
+      return { id: itemId, name: itemLabel, desc: itemDesc };
+    } catch (error) {
+      this.logger.error(`SPARQL query failed: ${error.message}`, error.stack);
+      throw new HttpException(`Failed to fetch item label for ${itemId}`, 500);
     }
   }
 }

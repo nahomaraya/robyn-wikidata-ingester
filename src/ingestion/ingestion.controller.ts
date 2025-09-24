@@ -1,4 +1,13 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
+import { IngestionService } from './ingestion.service';
 
-@Controller('ingestion')
-export class IngestionController {}
+@Controller('ingest')
+export class IngestionController {
+
+    constructor(private readonly ingestionService: IngestionService){}
+
+    @Get('items')
+    async ingestItems() {
+        return this.ingestionService.ingestItems();
+    }
+}

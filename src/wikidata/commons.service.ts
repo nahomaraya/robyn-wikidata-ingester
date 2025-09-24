@@ -2,13 +2,27 @@ import { HttpException, Injectable, Logger, StreamableFile } from '@nestjs/commo
 import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
 
+export interface CommonsImageInfo {
+  filename: string;
+  commons_url: string;
+  original_url?: string;
+  thumbnails?: {
+    width: number;
+    height: number;
+    url: string;
+  } | null;
+  srcset: string[];
+}
+
 @Injectable()
 export class CommonsService {
   private readonly logger = new Logger(CommonsService.name);
 
   constructor(private readonly httpService: HttpService) {}
 
-  async getImageFromP18(statements: JSON) {
+  async getImageFromP18(
+    statements: JSON,
+  ): Promise<CommonsImageInfo | { error: string }> {
     // P18 contains the Wikimedia Commons filename
     const p18 = statements['P18']?.[0]?.value?.content;
     if (!p18) {
@@ -50,7 +64,7 @@ export class CommonsService {
   }
 
 
-  async getImageByName(name: string) {
+  async getImageByName(name: string): Promise<CommonsImageInfo | { error: string }> {
     this.logger.log(`Resolving Commons image URL for: ${name}`);
   
     const restApiUrl = `https://commons.wikimedia.org/w/rest.php/v1/file/${encodeURIComponent(
@@ -80,7 +94,7 @@ export class CommonsService {
           height: file.thumbnail.height,
           url: file.thumbnail.url,
         } : null,
-        srcset, // ✅ responsive sizes for <img srcset="">
+        srcset,
       };
     } catch (error) {
       this.logger.error(`Error fetching Commons image: ${error.message}`);

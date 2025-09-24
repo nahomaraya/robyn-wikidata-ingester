@@ -25,4 +25,9 @@ export class WikidataController {
     return this.commonsService.getImageByName(name);
 
   }
+
+  @Get('itemName')
+  async getItemName(@Param('id') id:string){
+    return this.sparqlService.getItemName(id);
+  }
 }
