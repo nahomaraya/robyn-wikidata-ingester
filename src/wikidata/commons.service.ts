@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, Injectable, Logger, StreamableFile } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
 
@@ -8,7 +8,7 @@ export class CommonsService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  async getImageFromP18(statements: any) {
+  async getImageFromP18(statements: JSON) {
     // P18 contains the Wikimedia Commons filename
     const p18 = statements['P18']?.[0]?.value?.content;
     if (!p18) {
@@ -17,50 +17,24 @@ export class CommonsService {
     }
 
     this.logger.log(`Fetching Commons image for: ${p18}`);
-
-    // Commons API call
-    const commonsUrl = `https://magnus-toolserver.toolforge.org/commonsapi.php?image=${encodeURIComponent(
-      p18,
-    )}`;
-
-    try {
-      const response = await lastValueFrom(
-        this.httpService.get(commonsUrl, { responseType: 'json' }),
-      );
-
-      // API gives metadata including URL(s)
-      const imageInfo = response.data?.image?.urls?.file;
-
-      return {
-        filename: p18,
-        commons_url: `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(
-          p18,
-        )}`,
-        image_url: imageInfo,
-      };
-    } catch (error) {
-      this.logger.error(`Error fetching Commons image: ${error.message}`);
-      return { error: 'Failed to fetch image' };
-    }
+    return this.getImageByName(p18);
   }
 
-  async getImageByName(name: any) {
-    // P18 contains the Wikimedia Commons filename
-
-    this.logger.log(`Fetching Commons image for: ${name}`);
-
-    // Commons API call
+  async getImageMetadata(name: string) {
     const commonsUrl = `https://magnus-toolserver.toolforge.org/commonsapi.php?image=${encodeURIComponent(
-     name,
+      name,
     )}`;
 
     try {
       const response = await lastValueFrom(
         this.httpService.get(commonsUrl, { responseType: 'json' }),
       );
+      this.logger.log(response);
 
-      // API gives metadata including URL(s)
       const imageInfo = response.data?.image?.urls?.file;
+      if (!imageInfo) {
+        throw new HttpException('No image URL found', 404);
+      }
 
       return {
         filename: name,
@@ -68,6 +42,45 @@ export class CommonsService {
           name,
         )}`,
         image_url: imageInfo,
+      };
+    } catch (error) {
+      this.logger.error(`Error fetching Commons metadata: ${error.message}`);
+      throw new HttpException('Failed to fetch Commons metadata', 500);
+    }
+  }
+
+
+  async getImageByName(name: string) {
+    this.logger.log(`Resolving Commons image URL for: ${name}`);
+  
+    const restApiUrl = `https://commons.wikimedia.org/w/rest.php/v1/file/${encodeURIComponent(
+      name,
+    )}`;
+  
+    try {
+      const response = await lastValueFrom(
+        this.httpService.get(restApiUrl, { responseType: 'json' }),
+      );
+  
+      const file = response.data;
+  
+      if (!file?.preferred) {
+        this.logger.warn(`No preferred image found for: ${name}`);
+        return { error: 'No image available' };
+      }
+  
+      const srcset = file?.preferred?.srcset?.map((s: any) => `${s.src} ${s.scale}x`) || [];
+
+      return {
+        filename: name,
+        commons_url: `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(name)}`,
+        original_url: file.preferred?.url, // full-size image
+        thumbnails: file.thumbnail ? {
+          width: file.thumbnail.width,
+          height: file.thumbnail.height,
+          url: file.thumbnail.url,
+        } : null,
+        srcset, // ✅ responsive sizes for <img srcset="">
       };
     } catch (error) {
       this.logger.error(`Error fetching Commons image: ${error.message}`);
