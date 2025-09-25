@@ -55,6 +55,43 @@ export class WikidataService {
     }
   }
 
+  async getItemName(itemId: string): Promise<string> {
+    const accessToken = await this.fetchAccessToken();
+    const url = `${this.wikidataUrl}/wikibase/v1/entities/items/${itemId}`;
+  
+    this.logger.log(`Fetching Wikidata item label for ${itemId}`);
+  
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+  
+      const entity = response.data;
+      // Labels are nested under entity.labels.<lang>.value
+      const itemLabel =
+      entity?.labels?.en ??
+      entity?.labels?.[Object.keys(entity.labels || {})[0]] ??
+      '';
+  
+      if (!itemLabel) {
+        this.logger.warn(`No label found for item: ${itemId}`);
+      }
+  
+      return itemLabel;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch Wikidata item label for ${itemId}: ${error.message}`,
+        error.stack,
+      );
+      throw new HttpException(`Failed to fetch item label for ${itemId}`, 500);
+    }
+  }
+  
   async getItemStatements(itemId: string) {
     const accessToken = await this.fetchAccessToken();
     const url = `${this.wikidataUrl}/wikibase/v1/entities/items/${itemId}/statements`;

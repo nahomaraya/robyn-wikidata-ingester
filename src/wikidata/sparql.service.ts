@@ -57,11 +57,9 @@ export class SparqlService {
     }
   }
 
-  async getItemName(itemId: string): Promise<{ id: string; name: string; desc?: string }> {
-    this.logger.log(`Fetching label for item: ${itemId}`);
-
+  async getItemName(itemId: string): Promise<string> {
     const sparqlQuery = `
-      SELECT ?item ?itemLabel ?itemDescription
+      SELECT ?itemLabel
       WHERE {
         VALUES ?item { wd:${itemId} }
         SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
@@ -80,13 +78,13 @@ export class SparqlService {
       const bindings = response.data?.results?.bindings ?? [];
       if (bindings.length === 0) {
         this.logger.warn(`No label found for item: ${itemId}`);
-        return { id: itemId, name: '', desc: '' };
+        return '';
       }
 
       const itemLabel = bindings[0]?.itemLabel?.value ?? '';
-      const itemDesc = bindings[0]?.itemDescription?.value ?? '';
 
-      return { id: itemId, name: itemLabel, desc: itemDesc };
+
+      return itemLabel;
     } catch (error) {
       this.logger.error(`SPARQL query failed: ${error.message}`, error.stack);
       throw new HttpException(`Failed to fetch item label for ${itemId}`, 500);

@@ -26,8 +26,9 @@ export class WikidataController {
 
   }
 
-  @Get('itemName')
+  @Get('itemName/:id')
   async getItemName(@Param('id') id:string){
-    return this.sparqlService.getItemName(id);
+    this.logger.log(id);
+    return this.wikidataService.getItemName(id);
   }
 }

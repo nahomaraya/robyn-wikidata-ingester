@@ -3,6 +3,13 @@ import { WikidataService} from 'src/wikidata/wikidata.service';
 import { CommonsService, CommonsImageInfo } from 'src/wikidata/commons.service';
 import { SparqlService } from 'src/wikidata/sparql.service';
 
+
+interface LocationInfo {
+  locationName: string;
+  latitude: string,
+  longitude: string,
+}
+
 @Injectable()
 export class IngestionService {
 
@@ -26,22 +33,30 @@ export class IngestionService {
     
             // Get full statements from Wikidata for this item
             const statements = await this.wikidataService.getItemStatements(qid);
-    
-            // Extract current location (P276)
-            const location = statements['P276']?.[0]?.value?.content ?? null;
-    
+            const locationId = statements['P276']?.[0]?.value?.content ?? null
+            const locationStatement = await this.wikidataService.getItemStatements(locationId);
+            const locationName =  await this.wikidataService.getItemName(locationId);
+            const locationCoordinates = locationStatement['P625']?.[0]?.value?.content ?? null;
+            let location: LocationInfo | null = null;
+            if (locationCoordinates) {
+              location = {
+                locationName: locationName,
+                latitude: locationCoordinates.latitude.toString(),
+                longitude: locationCoordinates.longitude.toString(),
+              };
+            }
+
             // Extract P18 image name and resolve to Commons URLs
             const imageName = statements['P18']?.[0]?.value?.content ?? null;
             let imageInfo: CommonsImageInfo | { error: string } | null = null;;
             if (imageName) {
               imageInfo = await this.commonsService.getImageByName(imageName);
             }
-    
             results.push({
               id: qid,
               name,
               desc,
-              current_location: location,
+              location: location,
               image: imageInfo, // contains file + thumbnails
             });
           } catch (err) {
