@@ -11,9 +11,9 @@ interface LocationInfo {
 }
 
 @Injectable()
-export class IngestionService {
+export class CollectionService {
 
-    private readonly logger = new Logger(IngestionService.name);
+    private readonly logger = new Logger(CollectionService.name);
 
     constructor(
       private readonly wikidataService: WikidataService,
