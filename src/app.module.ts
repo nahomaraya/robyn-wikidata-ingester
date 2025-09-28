@@ -5,7 +5,6 @@ import { CommonsService } from './commons/commons.service';
 import { CollectionService } from './collection/collection.service';
 import { CollectionModule } from './collection/collection.module';
 import { CommonsModule } from './commons/commons.module';
-import { WikidataModule } from './wikidata/wikidata.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
@@ -13,6 +12,7 @@ import { HttpModule } from '@nestjs/axios';
 import authConfig from './config/auth.config';
 import supabaseConfig from './config/supabase.config';
 import wikidataConfig from './config/wikidata.config';
+import { MediawikiModule } from './mediawiki/mediawiki.module';
 
 @Module({
   imports: [
@@ -20,7 +20,7 @@ import wikidataConfig from './config/wikidata.config';
       load: [authConfig, supabaseConfig, wikidataConfig],
       isGlobal: true,
     }),
-    CollectionModule, CommonsModule, WikidataModule,  SupabaseModule, AuthModule],
+    CollectionModule, CommonsModule, MediawikiModule,  SupabaseModule, AuthModule],
   controllers: [AppController],
   providers: [AppService, CommonsService, CollectionService, Logger],
 })

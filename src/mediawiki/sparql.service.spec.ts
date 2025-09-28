@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { SparqlService } from '../wikidata/sparql.service';
+import { SparqlService } from './sparql.service';
 
 describe('SparqlService', () => {
   let service: SparqlService;
