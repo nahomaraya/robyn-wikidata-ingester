@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { WikidataService} from 'src/mediawiki/wikidata.service';
-import { CommonsService, CommonsImageInfo } from 'src/mediawiki/commons.service';
-import { SparqlService } from 'src/mediawiki/sparql.service';
+import { WikidataService} from 'src/wikidata/wikidata.service';
+import { CommonsService, CommonsImageInfo } from 'src/wikidata/commons.service';
+import { SparqlService } from 'src/wikidata/sparql.service';
 import { Collection } from './collection.interface';
 import { ConfigService } from '@nestjs/config';
 

@@ -12,7 +12,7 @@ import { HttpModule } from '@nestjs/axios';
 import authConfig from './config/auth.config';
 import supabaseConfig from './config/supabase.config';
 import wikidataConfig from './config/wikidata.config';
-import { MediawikiModule } from './mediawiki/mediawiki.module';
+import { WikidataModule } from './wikidata/wikidata.module';
 
 @Module({
   imports: [
@@ -20,7 +20,7 @@ import { MediawikiModule } from './mediawiki/mediawiki.module';
       load: [authConfig, supabaseConfig, wikidataConfig],
       isGlobal: true,
     }),
-    CollectionModule, CommonsModule, MediawikiModule,  SupabaseModule, AuthModule],
+    CollectionModule, CommonsModule, WikidataModule,  SupabaseModule, AuthModule],
   controllers: [AppController],
   providers: [AppService, CommonsService, CollectionService, Logger],
 })

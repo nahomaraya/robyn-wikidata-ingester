@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { CollectionController } from './collection.controller';
 import { CollectionService } from './collection.service';
 import { HttpModule } from '@nestjs/axios';
-import { MediawikiModule } from 'src/mediawiki/mediawiki.module';
+import { WikidataModule } from 'src/wikidata/wikidata.module';
 
 @Module({
-  imports: [HttpModule, MediawikiModule],
+  imports: [HttpModule, WikidataModule],
   providers: [CollectionService],
   controllers: [CollectionController],
   exports: [CollectionService]

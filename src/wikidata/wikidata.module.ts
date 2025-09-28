@@ -11,4 +11,4 @@ import { CommonsService } from './commons.service';
   controllers: [WikidataController],
   exports: [WikidataService, SparqlService, CommonsService],
 })
-export class MediawikiModule {}
+export class WikidataModule {}
