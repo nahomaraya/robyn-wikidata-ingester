@@ -20,6 +20,6 @@ export interface Collection {
     id: string;
     name: string;
     desc: string;
-    location: Location;
-    image: Image | null;
+    location: Location | null;
+    image: Image | { error: string } | null;
 }

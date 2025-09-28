@@ -9,64 +9,12 @@ export class SparqlService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  
-  
-  
-  async queryItems(): Promise<any> {
-    this.logger.log('SPARQL method called');
-    const sparqlQuery = `
-        SELECT ?item ?itemLabel ?itemDescription
-        WHERE {
-          ?item p:P793 ?statement.            # items with significant event
-          ?statement ps:P793 wd:Q192623.      # event = looting
-          ?statement pq:P585 ?time.           # qualifier: point in time
-          FILTER(YEAR(?time) = 1868)           # restrict to year 1868
-          ?statement pq:P2348 wd:Q947667.     # qualifier: time period = Battle of Magdala
-          SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
-        }
-      `;
-
+  /**
+   * Generic SPARQL executor
+   */
+  private async runQuery(sparqlQuery: string): Promise<any[]> {
     const fullUrl = this.sparqlUrl + '?query=' + encodeURIComponent(sparqlQuery);
     this.logger.log(`SPARQL full URL: ${fullUrl}`);
-
-    try {
-      const response = await firstValueFrom(
-        this.httpService.get(fullUrl, {
-          headers: {
-            Accept: 'application/sparql-results+json',
-          },
-        }),
-      );
-
-      this.logger.log(`SPARQL response status: ${response.status}`);
-      this.logger.log(`SPARQL response data: ${JSON.stringify(response.data)}`);
-
-      return response.data["results"]["bindings"];
-    } catch (error) {
-      this.logger.error(`SPARQL query failed: ${error.message}`, error.stack);
-
-      if (error.response) {
-        this.logger.error(
-          `Response status: ${error.response.status}, data: ${JSON.stringify(error.response.data)}`,
-        );
-      }
-      throw new HttpException(
-        `Failed to query SPARQL endpoint: ${error.message}`,
-        500,
-      );
-    }
-  }
-
-  async getItemName(itemId: string): Promise<string> {
-    const sparqlQuery = `
-      SELECT ?itemLabel
-      WHERE {
-        VALUES ?item { wd:${itemId} }
-        SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
-      }
-    `;
-
-    const fullUrl = this.sparqlUrl + '?query=' + encodeURIComponent(sparqlQuery);
 
     try {
       const response = await firstValueFrom(
@@ -75,19 +23,76 @@ export class SparqlService {
         }),
       );
 
-      const bindings = response.data?.results?.bindings ?? [];
-      if (bindings.length === 0) {
-        this.logger.warn(`No label found for item: ${itemId}`);
-        return '';
-      }
-
-      const itemLabel = bindings[0]?.itemLabel?.value ?? '';
-
-
-      return itemLabel;
+      return response.data?.results?.bindings ?? [];
     } catch (error) {
       this.logger.error(`SPARQL query failed: ${error.message}`, error.stack);
-      throw new HttpException(`Failed to fetch item label for ${itemId}`, 500);
+      if (error.response) {
+        this.logger.error(
+          `Response status: ${error.response.status}, data: ${JSON.stringify(error.response.data)}`,
+        );
+      }
+      throw new HttpException(
+        `SPARQL query failed: ${error.message}`,
+        500,
+      );
     }
+  }
+
+  /**
+   * Default query for looted items in 1868 (Battle of Magdala)
+   */
+  async queryItems(): Promise<any[]> {
+    const sparqlQuery = `
+      SELECT ?item ?itemLabel ?itemDescription
+      WHERE {
+        ?item p:P793 ?statement.
+        ?statement ps:P793 wd:Q192623.      # event = looting
+        ?statement pq:P585 ?time.
+        FILTER(YEAR(?time) = 1868)
+        ?statement pq:P2348 wd:Q947667.     # Battle of Magdala
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+      }
+    `;
+    return this.runQuery(sparqlQuery);
+  }
+
+  /**
+   * Dynamic query with filters
+   */
+  async queryItemsWithFilters(
+    year?: number,
+    eventId: string = 'Q192623',   // default: looting
+    periodId: string = 'Q947667',  // default: Battle of Magdala
+  ): Promise<any[]> {
+    const filterYear = year ? `FILTER(YEAR(?time) = ${year})` : '';
+
+    const sparqlQuery = `
+      SELECT ?item ?itemLabel ?itemDescription
+      WHERE {
+        ?item p:P793 ?statement.
+        ?statement ps:P793 wd:${eventId}.
+        ?statement pq:P585 ?time.
+        ${filterYear}
+        ?statement pq:P2348 wd:${periodId}.
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+      }
+    `;
+
+    return this.runQuery(sparqlQuery);
+  }
+
+  /**
+   * Get human-readable label for a Wikidata entity
+   */
+  async getItemName(itemId: string): Promise<string> {
+    const sparqlQuery = `
+      SELECT ?itemLabel
+      WHERE {
+        VALUES ?item { wd:${itemId} }
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+      }
+    `;
+    const bindings = await this.runQuery(sparqlQuery);
+    return bindings[0]?.itemLabel?.value ?? '';
   }
 }

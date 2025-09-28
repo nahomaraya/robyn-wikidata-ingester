@@ -21,7 +21,7 @@ export class CollectionService {
       private readonly sparqlService: SparqlService
     ) {}
     
-    async ingestItems(): Promise<Collection[]> {
+    async getLootedItems(): Promise<Collection[]> {
         const items = await this.sparqlService.queryItems();
         const itemPromises = items.map(async (item) => {
           try {

@@ -7,7 +7,16 @@ export class CollectionController {
     constructor(private readonly collectionService: CollectionService){}
 
     @Get('items')
-    async ingestItems() {
-        return this.collectionService.ingestItems();
+    async getLootedItems() {
+        return this.collectionService.getLootedItems();
     }
+
+//     @Get('filter')
+//     async getItemsWithFilters(
+//     @Query('year') year: number,
+//     @Query('eventId') eventId: string,
+//     @Query('periodId') periodId: string,
+//   ) {
+//     return await this.collectionService.queryItemsWithFilters(year, eventId, periodId);
+//   }
 }
