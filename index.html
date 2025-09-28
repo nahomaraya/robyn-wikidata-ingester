@@ -2,92 +2,91 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>StoryMapJS Example</title>
+  <title>Dynamic StoryMapJS Example</title>
 
   <!-- StoryMapJS CSS + JS -->
   <link rel="stylesheet" href="https://cdn.knightlab.com/libs/storymapjs/latest/css/storymap.css">
   <script src="https://cdn.knightlab.com/libs/storymapjs/latest/js/storymap-min.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-    }
-    #storymap {
-      width: 100%;
-      height: 600px; /* must set a height */
-    }
+    body { margin: 0; padding: 0; }
+    #storymap { width: 100%; height: 600px; } /* Required height */
   </style>
 </head>
 <body>
   <div id="storymap"></div>
 
   <script>
-    // Simulated API response (replace this with your fetch() if needed)
-    const apiResponse = {
-      "id": "Q135515584",
-      "name": "KWER‘ATA RE’ESU",
-      "desc": "A European Renaissance portrait of Christ, wearing the crown of thorns",
-      "location": {
-        "locationName": "Portugal",
-        "latitude": "38.7",
-        "longitude": "-9.183333333333334"
-      },
-      "image": {
-        "filename": "Primo stile di gondar, kwer'ata re'esu (uomo di dolori), xvii secolo.jpg",
-        "commons_url": "https://commons.wikimedia.org/wiki/File:Primo%20stile%20di%20gondar%2C%20kwer'ata%20re'esu%20(uomo%20di%20dolori)%2C%20xvii%20secolo.jpg",
-        "original_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Primo_stile_di_gondar%2C_kwer%27ata_re%27esu_%28uomo_di_dolori%29%2C_xvii_secolo.jpg/500px-Primo_stile_di_gondar%2C_kwer%27ata_re%27esu_%28uomo_di_dolori%29%2C_xvii_secolo.jpg"
-      }
-    };
+    // Your API endpoint
+    const apiUrl = 'http://localhost:3000/collection/items';
 
-    // Transform API response into StoryMapJS JSON format
-    const storymapData = {
-      width: 800,
-      height: 600,
-      storymap: {
-        language: "en",
-        map_type: "osm:standard",
-        slides: [
-          {
-            type: "overview",
+    async function initStoryMap() {
+      try {
+        // Fetch the items from your API
+        const response = await fetch(apiUrl);
+        const items = await response.json();
+
+        // Transform the API data into StoryMapJS slides
+        const slides = items
+        .filter(item => item.location) // skip if location is null
+        .map(item => {
+          return {
             text: {
-              headline: "Overview",
-              text: "Map overview of all story points"
+              headline: item.name,
+              text: item.desc || ''
             },
             location: {
-              lat: 20,
-              lon: 0,
-              zoom: 2
-            }
-          },
-          {
-            text: {
-              headline: apiResponse.name,
-              text: apiResponse.desc
-            },
-            location: {
-              name: apiResponse.location.locationName,
-              lat: parseFloat(apiResponse.location.latitude),
-              lon: parseFloat(apiResponse.location.longitude),
+              name: item.location.locationName || '',
+              lat: parseFloat(item.location.latitude),
+              lon: parseFloat(item.location.longitude),
               zoom: 6
             },
-            media: {
-              url: apiResponse.image.original_url,
-              caption: apiResponse.image.filename,
-              credit: "Source: <a href='" + apiResponse.image.commons_url + "' target='_blank'>Wikimedia Commons</a>"
-            }
+            media: item.image ? {
+              url: item.image.original_url,
+              caption: item.image.filename,
+              credit: `Source: <a href="${item.image.commons_url}" target="_blank">Wikimedia Commons</a>`
+            } : null // if image is null, StoryMapJS will ignore media
+          };
+        });
+
+
+        // Optional overview slide
+        slides.unshift({
+          type: "overview",
+          text: {
+            headline: "Overview",
+            text: "Map overview of all story points"
+          },
+          location: {
+            lat: 20,
+            lon: 0,
+            zoom: 2
           }
-        ]
+        });
+
+        // Full StoryMapJS JSON
+        const storymapData = {
+          width: 800,
+          height: 600,
+          storymap: {
+            language: "en",
+            map_type: "osm:standard",
+            slides: slides
+          }
+        };
+
+        // Initialize StoryMap
+        const storymap = new KLStoryMap.StoryMap('storymap', storymapData, {});
+        window.onresize = () => storymap.updateDisplay();
+
+      } catch (error) {
+        console.error("Error loading StoryMap:", error);
+        document.getElementById('storymap').innerHTML = "<p>Failed to load map. Check console.</p>";
       }
-    };
+    }
 
-    // Initialize StoryMap
-    const storymap = new KLStoryMap.StoryMap('storymap', storymapData, {});
-
-    // Resize handler (required by StoryMapJS)
-    window.onresize = function() {
-      storymap.updateDisplay();
-    };
+    // Run the initialization
+    initStoryMap();
   </script>
 </body>
 </html>

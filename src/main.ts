@@ -14,6 +14,10 @@ async function bootstrap() {
   .setVersion('1.0')
   .addTag('wiki apis')
   .build();
+  app.enableCors({
+    origin: 'http://127.0.0.1:3000', // or '*' for all origins
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  });
 
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
