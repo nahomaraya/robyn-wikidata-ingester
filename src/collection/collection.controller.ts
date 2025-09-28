@@ -11,12 +11,12 @@ export class CollectionController {
         return this.collectionService.getLootedItems();
     }
 
-//     @Get('filter')
-//     async getItemsWithFilters(
-//     @Query('year') year: number,
-//     @Query('eventId') eventId: string,
-//     @Query('periodId') periodId: string,
-//   ) {
-//     return await this.collectionService.queryItemsWithFilters(year, eventId, periodId);
-//   }
+    @Get('filter')
+    async getItemsWithFilters(
+      @Query('year') year?: number,
+      @Query('statement') statements?: string | string[], // handle single or multiple
+    ) {
+      const statementArray = Array.isArray(statements) ? statements : statements ? [statements] : [];
+      return this.collectionService.queryItemsWithFilters(year, statementArray);
+    }
 }

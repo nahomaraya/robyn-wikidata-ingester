@@ -1,13 +1,14 @@
 import { Injectable, HttpException, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class SparqlService {
   private readonly logger = new Logger(SparqlService.name);
   private sparqlUrl: string = 'https://query.wikidata.org/sparql';
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(private readonly httpService: HttpService, private readonly configService: ConfigService) {}
 
   /**
    * Generic SPARQL executor
@@ -46,10 +47,10 @@ export class SparqlService {
       SELECT ?item ?itemLabel ?itemDescription
       WHERE {
         ?item p:P793 ?statement.
-        ?statement ps:P793 wd:Q192623.      # event = looting
+        ?statement ps:P793 wd:${this.configService.get('wikidata.lootingEventId')}.      # event = looting
         ?statement pq:P585 ?time.
-        FILTER(YEAR(?time) = 1868)
-        ?statement pq:P2348 wd:Q947667.     # Battle of Magdala
+        FILTER(YEAR(?time) = ${this.configService.get('wikidata.lootingEventYear')})
+        ?statement pq:P2348 wd:${this.configService.get('wikidata.battleOfMagdalaId')}.     # Battle of Magdala
         SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
       }
     `;
@@ -60,26 +61,25 @@ export class SparqlService {
    * Dynamic query with filters
    */
   async queryItemsWithFilters(
-    year?: number,
-    eventId: string = 'Q192623',   // default: looting
-    periodId: string = 'Q947667',  // default: Battle of Magdala
+    statementFilters: string,
+    filterYear: string // array of conditions like "ps:P793:Q192623"
   ): Promise<any[]> {
-    const filterYear = year ? `FILTER(YEAR(?time) = ${year})` : '';
 
-    const sparqlQuery = `
+  
+      const sparqlQuery = `
       SELECT ?item ?itemLabel ?itemDescription
       WHERE {
         ?item p:P793 ?statement.
-        ?statement ps:P793 wd:${eventId}.
+        ${statementFilters}
         ?statement pq:P585 ?time.
         ${filterYear}
-        ?statement pq:P2348 wd:${periodId}.
         SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
       }
     `;
-
+  
     return this.runQuery(sparqlQuery);
   }
+  
 
   /**
    * Get human-readable label for a Wikidata entity
