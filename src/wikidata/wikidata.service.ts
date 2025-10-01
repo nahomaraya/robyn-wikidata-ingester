@@ -116,4 +116,44 @@ export class WikidataService {
       throw new HttpException('Failed to fetch Wikidata item', 500);
     }
   }
+
+  async getItemIdFromName(name: string, language: string = 'en'): Promise<string | null> {
+    const url = `https://www.wikidata.org/w/api.php`;
+  
+    this.logger.log(`Searching Wikidata for item with name: "${name}"`);
+  
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          params: {
+            action: 'wbsearchentities',
+            search: name,
+            language,
+            format: 'json',
+            type: 'item',
+            limit: 1, // return top match only
+          },
+        }),
+      );
+  
+      const searchResults = response.data?.search || [];
+  
+      if (searchResults.length === 0) {
+        this.logger.warn(`No Wikidata entity found for name: "${name}"`);
+        return null;
+      }
+  
+      const itemId = searchResults[0].id; // e.g. "Q947667"
+      this.logger.log(`Found Wikidata entity for "${name}": ${itemId}`);
+  
+      return itemId;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch Wikidata itemId for "${name}": ${error.message}`,
+        error.stack,
+      );
+      throw new HttpException('Failed to fetch Wikidata itemId from name', 500);
+    }
+  }
+  
 }

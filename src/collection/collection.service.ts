@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { WikidataService} from 'src/wikidata/wikidata.service';
 import { CommonsService, CommonsImageInfo } from 'src/wikidata/commons.service';
 import { SparqlService } from 'src/wikidata/sparql.service';
@@ -26,15 +26,14 @@ export class CollectionService {
 
     async queryItemsWithFilters(
         year?: number,
-        timePeriod: string = 'Q947667', // array of conditions like "ps:P793:Q192623"
+        timePeriod?: string, // array of conditions like "ps:P793:Q192623"
       ): Promise<any[]> {
-        const filterYear = year ? `FILTER(YEAR(?time) = ${year})` : '';
-      
-        // Build dynamic statements
-      
-    
-      
-        return this.sparqlService.queryItemsWithFilters(filterYear, timePeriod);
+        
+        const qid = await this.wikidataService.getItemIdFromName(timePeriod ?? '');
+        if (qid === null) {
+          throw new HttpException(`Wikidata item not found for time period: ${timePeriod}`, 404);
+        }
+        return this.sparqlService.queryItemsWithFilters(year ? year.toString() : undefined, qid);
       }
     
     async getLootedItems(): Promise<Collection[]> {
