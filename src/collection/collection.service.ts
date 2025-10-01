@@ -26,22 +26,15 @@ export class CollectionService {
 
     async queryItemsWithFilters(
         year?: number,
-        statements: string[] = [], // array of conditions like "ps:P793:Q192623"
+        timePeriod: string = 'Q947667', // array of conditions like "ps:P793:Q192623"
       ): Promise<any[]> {
         const filterYear = year ? `FILTER(YEAR(?time) = ${year})` : '';
       
         // Build dynamic statements
-        const statementFilters = statements
-          .map((s) => {
-            const [propType, propId, valueId] = s.split(':');
-            // e.g. "ps:P793:Q192623" -> ?statement ps:P793 wd:Q192623.
-            return `?statement ${propType} wd:${valueId}.`;
-          })
-          .join('\n');
       
     
       
-        return this.sparqlService.queryItemsWithFilters(statementFilters, filterYear);
+        return this.sparqlService.queryItemsWithFilters(filterYear, timePeriod);
       }
     
     async getLootedItems(): Promise<Collection[]> {

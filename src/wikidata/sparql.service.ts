@@ -60,17 +60,18 @@ export class SparqlService {
   /**
    * Dynamic query with filters
    */
+ 
   async queryItemsWithFilters(
-    statementFilters: string,
-    filterYear: string // array of conditions like "ps:P793:Q192623"
+    year?: string,
+    timePeriod: string = 'Q947667', // default: Battle of Magdala
   ): Promise<any[]> {
-
+    const filterYear = year ? `FILTER(YEAR(?time) = ${year})` : '';
   
-      const sparqlQuery = `
+    const sparqlQuery = `
       SELECT ?item ?itemLabel ?itemDescription
       WHERE {
         ?item p:P793 ?statement.
-        ${statementFilters}
+        ?statement pq:P2348 wd:${timePeriod}.
         ?statement pq:P585 ?time.
         ${filterYear}
         SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
@@ -79,6 +80,7 @@ export class SparqlService {
   
     return this.runQuery(sparqlQuery);
   }
+  
   
 
   /**
