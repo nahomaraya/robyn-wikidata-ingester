@@ -34,5 +34,4 @@ pnpm run start:prod
 
 4. **Swagger Url:**
 ```bash
-# Get looted items
 curl http://localhost:3000/api
