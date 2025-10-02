@@ -15,7 +15,7 @@ async function bootstrap() {
   .addTag('wiki apis')
   .build();
   app.enableCors({
-    origin: 'http://127.0.0.1:3000', // or '*' for all origins
+    origin: '*', // or '*' for all origins
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   });
 
