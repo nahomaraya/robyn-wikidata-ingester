@@ -35,7 +35,56 @@ export class CollectionService {
         }
         return this.sparqlService.queryItemsWithFilters(year ? year.toString() : undefined, qid);
       }
-    
+   
+      async getFirstItemIdentifier(qid: string, statements: any): Promise<string | null> {
+        const identifiers = await this.wikidataService.extractIdentifiers(statements);
+      
+        // 1. Check identifiers directly for URLs
+        const firstIdentifierWithUrl = identifiers.find(id => !!id.url);
+        if (firstIdentifierWithUrl) {
+          return firstIdentifierWithUrl.url!;
+        }
+      
+        // 2. Look through sitelinks (if present)
+        if ((identifiers as any)?.sitelinks) {
+          const sitelinks = (identifiers as any).sitelinks;
+          const firstSitelink = Object.values(sitelinks)[0] as any;
+          if (firstSitelink?.url) {
+            return firstSitelink.url;
+          }
+        }
+      
+        // 3. Scan statement values for plain string URLs
+        for (const values of Object.values(statements)) {
+          for (const v of values as any[]) {
+            const val = v?.mainsnak?.datavalue?.value ?? v?.value?.content;
+            if (typeof val === 'string' && val.startsWith('http')) {
+              return val;
+            }
+          }
+        }
+      
+        // 4. Also check references attached to statements for URLs
+        for (const values of Object.values(statements)) {
+          for (const v of values as any[]) {
+            if (v?.references) {
+              for (const ref of v.references) {
+                for (const snakValues of Object.values(ref.snaks || {})) {
+                  for (const snak of snakValues as any[]) {
+                    const refVal = snak?.datavalue?.value;
+                    if (typeof refVal === 'string' && refVal.startsWith('http')) {
+                      return refVal;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      
+        return null; // nothing found
+      }
+      
     async getLootedItems(): Promise<Collection[]> {
         const items = await this.sparqlService.queryItems();
         const itemPromises = items.map(async (item) => {
@@ -46,7 +95,7 @@ export class CollectionService {
   
               // Get full statements from Wikidata for this item
               const statements = await this.wikidataService.getItemStatements(qid);
-  
+              const identifier = await this.getFirstItemIdentifier(qid, statements);
               const locationId = statements[this.configService.get('wikidata.locationPropertyId')]?.[0]?.value?.content ?? null;
               let location: LocationInfo | null = null;
               if (locationId) {
@@ -75,6 +124,7 @@ export class CollectionService {
                   desc,
                   location,
                   image: imageInfo,
+                  identifier,
               };
           } catch (err) {
               this.logger.error(`Error ingesting item ${item.item.value}: ${err.message}`);

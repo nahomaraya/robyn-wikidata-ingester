@@ -20,6 +20,40 @@
     // Your API endpoint
     const apiUrl = 'http://localhost:3000/collection/items';
 
+    // Helper function to check if a URL can be embedded in iframe
+    async function canEmbedUrl(url) {
+      try {
+        // Create a test iframe to check if the URL can be embedded
+        const testIframe = document.createElement('iframe');
+        testIframe.style.display = 'none';
+        testIframe.src = url;
+        
+        return new Promise((resolve) => {
+          const timeout = setTimeout(() => {
+            document.body.removeChild(testIframe);
+            resolve(false); // Timeout - likely blocked
+          }, 3000);
+          
+          testIframe.onload = () => {
+            clearTimeout(timeout);
+            document.body.removeChild(testIframe);
+            resolve(true);
+          };
+          
+          testIframe.onerror = () => {
+            clearTimeout(timeout);
+            document.body.removeChild(testIframe);
+            resolve(false);
+          };
+          
+          document.body.appendChild(testIframe);
+        });
+      } catch (error) {
+        console.warn(`Error checking embeddability for ${url}:`, error);
+        return false;
+      }
+    }
+
     async function initStoryMap() {
       try {
         // Fetch the items from your API
@@ -27,27 +61,53 @@
         const items = await response.json();
 
         // Transform the API data into StoryMapJS slides
-        const slides = items
-        .filter(item => item.location) // skip if location is null
-        .map(item => {
-          return {
-            text: {
-              headline: item.name,
-              text: item.desc || ''
-            },
-            location: {
-              name: item.location.locationName || '',
-              lat: parseFloat(item.location.latitude),
-              lon: parseFloat(item.location.longitude),
-              zoom: 6
-            },
-            media: item.image ? {
-              url: item.image.original_url,
-              caption: item.image.filename,
-              credit: `Source: <a href="${item.image.commons_url}" target="_blank">Wikimedia Commons</a>`
-            } : null // if image is null, StoryMapJS will ignore media
-          };
-        });
+        const slides = await Promise.all(
+          items
+          .filter(item => item.location) // skip if location is null
+          .map(async (item) => {
+            let media = null;
+            
+            if (item.image) {
+              media = {
+                url: item.image.original_url,
+                caption: item.image.filename,
+                credit: `Source: <a href="${item.image.commons_url}" target="_blank">Wikimedia Commons</a>`
+              };
+            } else if (item.identifier) {
+              // Check if the URL can be embedded before using it
+              const canEmbed = await canEmbedUrl(item.identifier);
+              if (canEmbed) {
+                media = {
+                  url: item.identifier,
+                  caption: "External Content",
+                  credit: `Source: <a href="${item.identifier}" target="_blank">View External Content</a>`
+                };
+              } else {
+                // Fallback: show a link instead of iframe
+                console.warn(`Cannot embed ${item.identifier} - using fallback`);
+                media = {
+                  url: `data:text/html,<div style="padding:20px;text-align:center;"><h3>External Content</h3><p>This content cannot be embedded.</p><a href="${item.identifier}" target="_blank" style="background:#007cba;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">View External Content</a></div>`,
+                  caption: "External Content (Click to view)",
+                  credit: `Source: <a href="${item.identifier}" target="_blank">View External Content</a>`
+                };
+              }
+            }
+
+            return {
+              text: {
+                headline: item.name,
+                text: item.desc || ''
+              },
+              location: {
+                name: item.location.locationName || '',
+                lat: parseFloat(item.location.latitude),
+                lon: parseFloat(item.location.longitude),
+                zoom: 6
+              },
+              media: media
+            };
+          })
+        );
 
 
         // Optional overview slide

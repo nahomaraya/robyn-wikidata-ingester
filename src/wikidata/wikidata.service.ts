@@ -26,8 +26,6 @@ export class WikidataService {
       return this.token;
     }
 
-    this.logger.log('Fetching new access token from Wikidata...');
-
     try {
       const response = await firstValueFrom(
         this.httpService.post(
@@ -46,7 +44,7 @@ export class WikidataService {
       this.token = response.data.access_token;
       this.tokenExpiry = Date.now() + response.data.expires_in * 1000;
 
-      this.logger.log(`New access token fetched. Expires in ${response.data.expires_in}s`);
+      // this.logger.log(`New access token fetched. Expires in ${response.data.expires_in}s`);
 
       return this.token!;
     } catch (error) {
@@ -58,9 +56,6 @@ export class WikidataService {
   async getItemName(itemId: string): Promise<string> {
     const accessToken = await this.fetchAccessToken();
     const url = `${this.wikidataUrl}/wikibase/v1/entities/items/${itemId}`;
-  
-    this.logger.log(`Fetching Wikidata item label for ${itemId}`);
-  
     try {
       const response = await firstValueFrom(
         this.httpService.get(url, {
@@ -95,9 +90,6 @@ export class WikidataService {
   async getItemStatements(itemId: string) {
     const accessToken = await this.fetchAccessToken();
     const url = `${this.wikidataUrl}/wikibase/v1/entities/items/${itemId}/statements`;
-
-    this.logger.log(`Fetching Wikidata item statements for ${itemId}`);
-
     try {
       const response = await firstValueFrom(
         this.httpService.get(url, {
@@ -117,6 +109,45 @@ export class WikidataService {
     }
   }
 
+  async extractIdentifiers(statements: any): Promise<{ property: string; value: string; url?: string }[]> {
+    const identifiers: { property: string; value: string; url?: string }[] = [];
+
+    for (const [prop, values] of Object.entries(statements)) {
+        for (const v of values as any[]) {
+            this.logger.log(`Statement for ${prop}: ${JSON.stringify(v)}`);
+
+            // 1️⃣ Check if mainsnak itself is a URL
+            if (v.mainsnak?.datatype === 'url') {
+                const value = v.mainsnak?.datavalue?.value ?? '';
+                let url: string | undefined;
+                if (v.propertyInfo?.formatterUrl && value) {
+                    url = v.propertyInfo.formatterUrl.replace('$1', encodeURIComponent(value));
+                }
+                identifiers.push({ property: prop, value, url });
+            }
+
+            // 2️⃣ Extract URLs from references
+            if (Array.isArray(v.references)) {
+                for (const ref of v.references) {
+                    if (Array.isArray(ref.parts)) {
+                        for (const part of ref.parts) {
+                            if (part.property?.data_type === 'url') {
+                                const urlValue = part.value?.content ?? '';
+                                if (urlValue) {
+                                    identifiers.push({ property: prop, value: urlValue, url: urlValue });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return identifiers;
+}
+
+  
   async getItemIdFromName(name: string, language: string = 'en'): Promise<string | null> {
     const url = `https://www.wikidata.org/w/api.php`;
   

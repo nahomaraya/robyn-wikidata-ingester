@@ -15,7 +15,6 @@ export class SparqlService {
    */
   private async runQuery(sparqlQuery: string): Promise<any[]> {
     const fullUrl = this.sparqlUrl + '?query=' + encodeURIComponent(sparqlQuery);
-    this.logger.log(`SPARQL full URL: ${fullUrl}`);
 
     try {
       const response = await firstValueFrom(
