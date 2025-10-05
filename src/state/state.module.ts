@@ -10,8 +10,8 @@ import { StateService } from './state.service';
     {
       provide: Redis, // inject this as the Redis instance
       useFactory: (configService: ConfigService): Redis => {
-        const restUrl = configService.get<string>('upstash.redisUrl');
-        const restToken = configService.get<string>('upstash.redisToken');
+        const restUrl = configService.get('upstash.redisUrl');
+        const restToken = configService.get('upstash.redisToken');
         console.log(restToken);
         if (!restUrl || !restToken) {
           throw new Error('Missing Upstash Redis configuration values');
