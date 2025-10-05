@@ -13,6 +13,8 @@ import authConfig from './config/auth.config';
 import supabaseConfig from './config/supabase.config';
 import wikidataConfig from './config/wikidata.config';
 import { WikidataModule } from './wikidata/wikidata.module';
+import { StateService } from './state/state.service';
+import { StateModule } from './state/state.module';
 
 @Module({
   imports: [
@@ -20,8 +22,8 @@ import { WikidataModule } from './wikidata/wikidata.module';
       load: [authConfig, supabaseConfig, wikidataConfig],
       isGlobal: true,
     }),
-    CollectionModule, CommonsModule, WikidataModule,  SupabaseModule, AuthModule],
+    CollectionModule, CommonsModule, WikidataModule,  SupabaseModule, AuthModule, StateModule],
   controllers: [AppController],
-  providers: [AppService, CommonsService, CollectionService, Logger],
+  providers: [AppService, CommonsService, CollectionService, Logger, StateService],
 })
 export class AppModule {}
