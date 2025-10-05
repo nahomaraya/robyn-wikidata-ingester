@@ -9,11 +9,20 @@ export class StateService {
 
 
   async cacheSet<T>(key: string, value: T, ttlSeconds?: number) {
-    await this.redis.set(key, value, ttlSeconds ? { ex: ttlSeconds } : undefined);
+    try {
+      await this.redis.set(key, value, ttlSeconds ? { ex: ttlSeconds } : undefined);
+    } catch (error) {
+      this.logger.warn(`Failed to cache data for key ${key}: ${error.message}`);
+    }
   }
 
   async cacheGet<T>(key: string): Promise<T | null> {
-    return this.redis.get<T>(key);
+    try {
+      return await this.redis.get<T>(key);
+    } catch (error) {
+      this.logger.warn(`Failed to get cached data for key ${key}: ${error.message}`);
+      return null;
+    }
   }
 
   async incrementRequestCount(ip: string, ttlSeconds = 60): Promise<number> {

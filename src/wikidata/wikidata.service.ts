@@ -114,8 +114,6 @@ export class WikidataService {
 
     for (const [prop, values] of Object.entries(statements)) {
         for (const v of values as any[]) {
-            this.logger.log(`Statement for ${prop}: ${JSON.stringify(v)}`);
-
             // 1️⃣ Check if mainsnak itself is a URL
             if (v.mainsnak?.datatype === 'url') {
                 const value = v.mainsnak?.datavalue?.value ?? '';

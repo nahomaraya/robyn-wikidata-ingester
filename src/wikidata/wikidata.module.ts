@@ -4,9 +4,10 @@ import { WikidataController } from './wikidata.controller';
 import { WikidataService } from './wikidata.service';
 import { SparqlService } from './sparql.service';
 import { CommonsService } from './commons.service';
+import { StateModule } from '../state/state.module';
 
 @Module({
-  imports: [HttpModule],
+  imports: [HttpModule, StateModule],
   providers: [WikidataService, SparqlService, CommonsService],
   controllers: [WikidataController],
   exports: [WikidataService, SparqlService, CommonsService],
