@@ -106,7 +106,7 @@ export class SparqlService {
         SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
       }
     `;
-  
+
     const result = await this.runQuery(sparqlQuery);
     
     // Cache the result for 1 hour (3600 seconds)
