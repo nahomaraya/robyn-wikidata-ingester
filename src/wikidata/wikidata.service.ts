@@ -200,7 +200,10 @@ export class WikidataService {
 
   async getItemName(itemId: string): Promise<string> {
     const accessToken = await this.fetchAccessToken();
-    const url = `${this.wikidataUrl}/wikibase/v1/entities/items/${itemId}`;
+    const isProperty = itemId.startsWith('P');
+    const url = isProperty
+      ? `${this.wikidataUrl}/wikibase/v1/entities/properties/${itemId}`
+      : `${this.wikidataUrl}/wikibase/v1/entities/items/${itemId}`;
     try {
       const response = await firstValueFrom(
         this.httpService.get(url, {
@@ -222,6 +225,7 @@ export class WikidataService {
         this.logger.warn(`No label found for item: ${itemId}`);
       }
   
+      this.logger.log(itemLabel);
       return itemLabel;
     } catch (error) {
       this.logger.error(

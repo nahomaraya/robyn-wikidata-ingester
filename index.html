@@ -38,6 +38,23 @@
   <script>
     // API endpoint base for filtering
     const filterApiBase = 'https://robyn-wikidata-ingester.vercel.app/collection/multiitems';
+    // API endpoint base for resolving labels
+    const nameApiBase = 'http://localhost:3000/wikidata/itemName/';
+
+    async function fetchNameForId(id) {
+      if (!id) return '';
+      try {
+        const res = await fetch(nameApiBase + encodeURIComponent(id));
+        if (!res.ok) return '';
+        const data = await res.json();
+        // Expecting a plain string or an object with { name }
+        if (typeof data === 'string') return data;
+        if (data && typeof data.name === 'string') return data.name;
+        return '';
+      } catch (_) {
+        return '';
+      }
+    }
 
     // Helper function to check if a URL can be embedded in iframe
     async function canEmbedUrl(url) {
@@ -73,7 +90,7 @@
       }
     }
 
-    async function createSlidesFromItems(items) {
+    async function createSlidesFromItems(items, selectedItemId, selectedPropertyId, selectedItemName, selectedPropertyName) {
       // Transform the API data into StoryMapJS slides
       const slides = await Promise.all(
         items
@@ -136,8 +153,8 @@
       slides.unshift({
         type: "overview",
         text: {
-          headline: "Wikidata TimeTrail. Visualize the history of an item in wikidata",
-          text: "The default example has to do with events that caused the dissolution of the Soviet Union. Add an itemId and PropertyId and see where the trail goes! Powered by StorymapJS"
+          headline: "Wikidata TimeTrail. Visualize the history of an item powered by Wikidata and StorymapJS!",
+          text: `The default example has to do with events that caused the dissolution of the Soviet Union. Add an itemId and PropertyId and see where the trail goes! Current map shows:  ${(selectedItemId || selectedPropertyId) ? `<br><br><strong>Current selection:</strong> ${selectedItemId ? `Item <code>${selectedItemId}</code> with name ${selectedItemName ? ` (${selectedItemName})` : ''}` : ''}${(selectedItemId && selectedPropertyId) ? ' · ' : ''}${selectedPropertyId ? `Property <code>${selectedPropertyId}</code>${selectedPropertyName ? ` (${selectedPropertyName})` : ''}` : ''}` : ''}`
         },
         location: {
           lat: 11,
@@ -149,9 +166,15 @@
       return slides;
     }
 
-    async function initStoryMap(itemId, propertyId) {
+    async function initStoryMap() {
       try {
         // Fetch filtered items from API
+        const itemId = (document.getElementById('itemId')).value || '';
+        const propertyId = (document.getElementById('propertyId')).value || '';
+        const [itemName, propertyName] = await Promise.all([
+          fetchNameForId(itemId),
+          fetchNameForId(propertyId)
+        ]);
         const url = `${filterApiBase}?itemId=${encodeURIComponent(itemId)}&propertyId=${encodeURIComponent(propertyId)}`;
         const response = await fetch(url);
         if (!response.ok) {
@@ -159,7 +182,7 @@
         }
         const items = await response.json();
 
-        const slides = await createSlidesFromItems(items);
+        const slides = await createSlidesFromItems(items, itemId, propertyId, itemName, propertyName);
         console.log('Generated slides:', slides); // Debug: log the generated slides
 
         if (slides.length === 0) {
@@ -194,16 +217,12 @@
     // Wire up filter form and load defaults
     document.getElementById('filterForm').addEventListener('submit', (e) => {
       e.preventDefault();
-      const itemId = (document.getElementById('itemId')).value || '';
-      const propertyId = (document.getElementById('propertyId')).value || '';
-      initStoryMap(itemId, propertyId);
+      
+      initStoryMap();
     });
 
     // Initial load with defaults
-    initStoryMap(
-      (document.getElementById('itemId')).value,
-      (document.getElementById('propertyId')).value
-    );
+    initStoryMap();
   </script>
 </body>
 </html>
