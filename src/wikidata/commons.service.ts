@@ -43,8 +43,6 @@ export class CommonsService {
       const response = await lastValueFrom(
         this.httpService.get(commonsUrl, { responseType: 'json' }),
       );
-      this.logger.log(response);
-
       const imageInfo = response.data?.image?.urls?.file;
       if (!imageInfo) {
         throw new HttpException('No image URL found', 404);

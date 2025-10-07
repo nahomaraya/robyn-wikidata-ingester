@@ -14,11 +14,30 @@
   </style>
 </head>
 <body>
+  <div style="padding:12px 16px;border-bottom:1px solid #e5e5e5;background:#fafafa;font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;">
+    <form id="filterForm" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label for="itemId" style="font-size:14px;color:#333;">Item ID</label>
+        <input id="itemId" name="itemId" type="text" value="Q5167679" placeholder="e.g. Q5167679" 
+               style="padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:140px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label for="propertyId" style="font-size:14px;color:#333;">Property ID</label>
+        <input id="propertyId" name="propertyId" type="text" value="P828" placeholder="e.g. P828" 
+               style="padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:140px;">
+      </div>
+      <button type="submit" 
+              style="background:#007cba;color:white;padding:10px 16px;border:none;border-radius:6px;font-size:14px;cursor:pointer;">
+        Load
+      </button>
+    </form>
+  </div>
+
   <div id="storymap"></div>
 
   <script>
-    // Your API endpoint
-    const apiUrl = 'https://robyn-wikidata-ingester.vercel.app/collection/items';
+    // API endpoint base for filtering
+    const filterApiBase = 'http://localhost:3000/collection/multiitems';
 
     // Helper function to check if a URL can be embedded in iframe
     async function canEmbedUrl(url) {
@@ -54,99 +73,117 @@
       }
     }
 
-    async function initStoryMap() {
+    async function createSlidesFromItems(items) {
+      // Transform the API data into StoryMapJS slides
+      const slides = await Promise.all(
+        items
+        .filter(item => {
+          if (!item.location) return false;
+          const lat = parseFloat(item.location.latitude);
+          const lon = parseFloat(item.location.longitude);
+          return !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0;
+        }) // skip if location is null or has invalid coordinates
+        .map(async (item) => {
+          let media = null;
+          
+          if (item.image) {
+            media = {
+              url: item.image.original_url,
+              caption: item.image.filename,
+              credit: `Source: <a href="${item.image.commons_url}" target="_blank">Wikimedia Commons</a>`
+            };
+          } else if (item.identifier) {
+            // Check if the URL can be embedded before using it
+            const canEmbed = await canEmbedUrl(item.identifier);
+            if (canEmbed) {
+              media = {
+                url: item.identifier,
+                caption: "External Content",
+                credit: `Source: <a href="${item.identifier}" target="_blank">View External Content</a>`
+              };
+            } else {
+              // Fallback: show a link instead of iframe
+              console.warn(`Cannot embed ${item.identifier} - using fallback`);
+              media = {
+                url: `data:text/html,<div style="padding:20px;text-align:center;"><h3>External Content</h3><p>This content cannot be embedded.</p><a href="${item.identifier}" target="_blank" style="background:#007cba;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">View External Content</a></div>`,
+                caption: "External Content (Click to view)",
+                credit: `Source: <a href="${item.identifier}" target="_blank">View External Content</a>`
+              };
+            }
+          }
+
+          return {
+            text: {
+              headline: item.name,
+              text: `
+                ${item.desc || ''} 
+                <br><strong>Location:</strong> ${item.location.locationName || ''} 
+                ${item.id ? `<br><a href="https://www.wikidata.org/wiki/${item.id}" target="_blank">View on Wikidata</a>` : ''}
+              `
+            },
+            location: {
+              name: item.location.locationName || '',
+              lat: parseFloat(item.location.latitude) || 0,
+              lon: parseFloat(item.location.longitude) || 0,
+              zoom: 6
+            },
+            media: media
+          };
+        })
+      );
+
+      // Optional overview slide
+      slides.unshift({
+        type: "overview",
+        text: {
+          headline: "Looted Items During the Battle of Magdala",
+          text: `The <a href="https://en.wikipedia.org/wiki/Battle_of_Magdala" target="_blank">Battle of Magdala</a> was the conclusion 
+          of the British Expedition to Abyssinia fought in April 1868 
+          between British and Abyssinian forces at Magdala. The battle was a British victory, and the British forces
+          looted a large amount of goods from the fortress of Magdala. Many looted objects, cultural artefacts 
+          and art objects found their way into state and private collections, family possessions,
+          and the hands of ordinary soldiers. Because of the presence of Richard Holmes, a curator from the British Museum, 
+          over 300 manuscripts were acquired on the spot by the British Museum. In addition to these a large selection of textual materials
+          made their way into the collections of the Bodleian Library in Oxford University, 
+          while a few went to the Royal Library in Windsor Castle and to smaller British collections.
+          Other looted objects ended up in the Victoria and Albert Museum, the Museum of Mankind and the National Army Museum. 
+          The Bodleian Library holds multiple manuscripts many explicitly catalogued as originating from the Church of Medhane ‘Alam at Magdala in 1868.
+          
+        <div style="margin-top:20px;text-align:center;">
+          <a href="#next" 
+            onclick="document.querySelector('.vco-slide-content-container .nav-next').click()" 
+            style="background:#007cba;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-size:16px;display:inline-block;">
+          Explore the Looted Items
+          </a>
+        </div>
+          `
+        },
+        location: {
+          lat: 11,
+          lon: 39,
+          zoom: 8  // zooms closer in
+        }
+      });
+
+      return slides;
+    }
+
+    async function initStoryMap(itemId, propertyId) {
       try {
-        // Fetch the items from your API
-        const response = await fetch(apiUrl);
+        // Fetch filtered items from API
+        const url = `${filterApiBase}?itemId=${encodeURIComponent(itemId)}&propertyId=${encodeURIComponent(propertyId)}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
         const items = await response.json();
 
-        // Transform the API data into StoryMapJS slides
-        const slides = await Promise.all(
-          items
-          .filter(item => item.location) // skip if location is null
-          .map(async (item) => {
-            let media = null;
-            
-            if (item.image) {
-              media = {
-                url: item.image.original_url,
-                caption: item.image.filename,
-                credit: `Source: <a href="${item.image.commons_url}" target="_blank">Wikimedia Commons</a>`
-              };
-            } else if (item.identifier) {
-              // Check if the URL can be embedded before using it
-              const canEmbed = await canEmbedUrl(item.identifier);
-              if (canEmbed) {
-                media = {
-                  url: item.identifier,
-                  caption: "External Content",
-                  credit: `Source: <a href="${item.identifier}" target="_blank">View External Content</a>`
-                };
-              } else {
-                // Fallback: show a link instead of iframe
-                console.warn(`Cannot embed ${item.identifier} - using fallback`);
-                media = {
-                  url: `data:text/html,<div style="padding:20px;text-align:center;"><h3>External Content</h3><p>This content cannot be embedded.</p><a href="${item.identifier}" target="_blank" style="background:#007cba;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">View External Content</a></div>`,
-                  caption: "External Content (Click to view)",
-                  credit: `Source: <a href="${item.identifier}" target="_blank">View External Content</a>`
-                };
-              }
-            }
+        const slides = await createSlidesFromItems(items);
+        console.log('Generated slides:', slides); // Debug: log the generated slides
 
-            return {
-              text: {
-                headline: item.name,
-                text: `
-                  ${item.desc || ''} 
-                  <br><strong>Location:</strong> ${item.location.locationName || ''} 
-                  ${item.id ? `<br><a href="https://www.wikidata.org/wiki/${item.id}" target="_blank">View on Wikidata</a>` : ''}
-                `
-              },
-              location: {
-                name: item.location.locationName || '',
-                lat: parseFloat(item.location.latitude),
-                lon: parseFloat(item.location.longitude),
-                zoom: 6
-              },
-              media: media
-            };
-          })
-        );
-
-
-        // Optional overview slide
-        slides.unshift({
-          type: "overview",
-          text: {
-            headline: "Looted Items During the Battle of Magdala",
-            text: `The <a href="https://en.wikipedia.org/wiki/Battle_of_Magdala" target="_blank">Battle of Magdala</a> was the conclusion 
-            of the British Expedition to Abyssinia fought in April 1868 
-            between British and Abyssinian forces at Magdala. The battle was a British victory, and the British forces
-            looted a large amount of goods from the fortress of Magdala. Many looted objects, cultural artefacts 
-            and art objects found their way into state and private collections, family possessions,
-            and the hands of ordinary soldiers. Because of the presence of Richard Holmes, a curator from the British Museum, 
-            over 300 manuscripts were acquired on the spot by the British Museum. In addition to these a large selection of textual materials
-            made their way into the collections of the Bodleian Library in Oxford University, 
-            while a few went to the Royal Library in Windsor Castle and to smaller British collections.
-            Other looted objects ended up in the Victoria and Albert Museum, the Museum of Mankind and the National Army Museum. 
-            The Bodleian Library holds multiple manuscripts many explicitly catalogued as originating from the Church of Medhane ‘Alam at Magdala in 1868.
-            
-          <div style="margin-top:20px;text-align:center;">
-            <a href="#next" 
-              onclick="document.querySelector('.vco-slide-content-container .nav-next').click()" 
-              style="background:#007cba;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-size:16px;display:inline-block;">
-            Explore the Looted Items
-            </a>
-          </div>
-            `
-          },
-          location: {
-            lat: 11,
-            lon: 39,
-            zoom: 8  // zooms closer in
-          }
-        });
-
+        if (slides.length === 0) {
+          throw new Error('No valid items with location data found');
+        }
 
         // Full StoryMapJS JSON
         const storymapData = {
@@ -160,7 +197,9 @@
 
         };
 
-        // Initialize StoryMap
+        // Initialize StoryMap (reset container to rebuild)
+        const container = document.getElementById('storymap');
+        container.innerHTML = '';
         const storymap = new KLStoryMap.StoryMap('storymap', storymapData, {});
         window.onresize = () => storymap.updateDisplay();
 
@@ -169,9 +208,21 @@
         document.getElementById('storymap').innerHTML = "<p>Failed to load map. Check console.</p>";
       }
     }
+    
 
-    // Run the initialization
-    initStoryMap();
+    // Wire up filter form and load defaults
+    document.getElementById('filterForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const itemId = (document.getElementById('itemId')).value || '';
+      const propertyId = (document.getElementById('propertyId')).value || '';
+      initStoryMap(itemId, propertyId);
+    });
+
+    // Initial load with defaults
+    initStoryMap(
+      (document.getElementById('itemId')).value,
+      (document.getElementById('propertyId')).value
+    );
   </script>
 </body>
 </html>

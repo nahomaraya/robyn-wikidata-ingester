@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dynamic StoryMapJS Example</title>
+
+  <!-- StoryMapJS CSS + JS -->
+  <link rel="stylesheet" href="https://cdn.knightlab.com/libs/storymapjs/latest/css/storymap.css">
+  <script src="https://cdn.knightlab.com/libs/storymapjs/latest/js/storymap-min.js"></script>
+
+  <style>
+    body { margin: 0; padding: 0; }
+    #storymap { width: 100%; height: 800px; } /* Required height */
+  </style>
+</head>
+<body>
+  <div id="storymap"></div>
+
+  <script>
+    // Your API endpoint
+    const apiUrl = 'https//localhost:3000/collection/items';
+
+    // Helper function to check if a URL can be embedded in iframe
+    async function canEmbedUrl(url) {
+      try {
+        // Create a test iframe to check if the URL can be embedded
+        const testIframe = document.createElement('iframe');
+        testIframe.style.display = 'none';
+        testIframe.src = url;
+        
+        return new Promise((resolve) => {
+          const timeout = setTimeout(() => {
+            document.body.removeChild(testIframe);
+            resolve(false); // Timeout - likely blocked
+          }, 3000);
+          
+          testIframe.onload = () => {
+            clearTimeout(timeout);
+            document.body.removeChild(testIframe);
+            resolve(true);
+          };
+          
+          testIframe.onerror = () => {
+            clearTimeout(timeout);
+            document.body.removeChild(testIframe);
+            resolve(false);
+          };
+          
+          document.body.appendChild(testIframe);
+        });
+      } catch (error) {
+        console.warn(`Error checking embeddability for ${url}:`, error);
+        return false;
+      }
+    }
+
+    async function initStoryMap() {
+      try {
+        // Fetch the items from your API
+        const response = await fetch(apiUrl);
+        const items = await response.json();
+
+        // Transform the API data into StoryMapJS slides
+        const slides = await Promise.all(
+          items
+          .filter(item => item.location) // skip if location is null
+          .map(async (item) => {
+            let media = null;
+            
+            if (item.image) {
+              media = {
+                url: item.image.original_url,
+                caption: item.image.filename,
+                credit: `Source: <a href="${item.image.commons_url}" target="_blank">Wikimedia Commons</a>`
+              };
+            } else if (item.identifier) {
+              // Check if the URL can be embedded before using it
+              const canEmbed = await canEmbedUrl(item.identifier);
+              if (canEmbed) {
+                media = {
+                  url: item.identifier,
+                  caption: "External Content",
+                  credit: `Source: <a href="${item.identifier}" target="_blank">View External Content</a>`
+                };
+              } else {
+                // Fallback: show a link instead of iframe
+                console.warn(`Cannot embed ${item.identifier} - using fallback`);
+                media = {
+                  url: `data:text/html,<div style="padding:20px;text-align:center;"><h3>External Content</h3><p>This content cannot be embedded.</p><a href="${item.identifier}" target="_blank" style="background:#007cba;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">View External Content</a></div>`,
+                  caption: "External Content (Click to view)",
+                  credit: `Source: <a href="${item.identifier}" target="_blank">View External Content</a>`
+                };
+              }
+            }
+
+            return {
+              text: {
+                headline: item.name,
+                text: `
+                  ${item.desc || ''} 
+                  <br><strong>Location:</strong> ${item.location.locationName || ''} 
+                  ${item.id ? `<br><a href="https://www.wikidata.org/wiki/${item.id}" target="_blank">View on Wikidata</a>` : ''}
+                `
+              },
+              location: {
+                name: item.location.locationName || '',
+                lat: parseFloat(item.location.latitude),
+                lon: parseFloat(item.location.longitude),
+                zoom: 6
+              },
+              media: media
+            };
+          })
+        );
+
+
+        // Optional overview slide
+        slides.unshift({
+          type: "overview",
+          text: {
+            headline: "Looted Items During the Battle of Magdala",
+            text: `The <a href="https://en.wikipedia.org/wiki/Battle_of_Magdala" target="_blank">Battle of Magdala</a> was the conclusion 
+            of the British Expedition to Abyssinia fought in April 1868 
+            between British and Abyssinian forces at Magdala. The battle was a British victory, and the British forces
+            looted a large amount of goods from the fortress of Magdala. Many looted objects, cultural artefacts 
+            and art objects found their way into state and private collections, family possessions,
+            and the hands of ordinary soldiers. Because of the presence of Richard Holmes, a curator from the British Museum, 
+            over 300 manuscripts were acquired on the spot by the British Museum. In addition to these a large selection of textual materials
+            made their way into the collections of the Bodleian Library in Oxford University, 
+            while a few went to the Royal Library in Windsor Castle and to smaller British collections.
+            Other looted objects ended up in the Victoria and Albert Museum, the Museum of Mankind and the National Army Museum. 
+            The Bodleian Library holds multiple manuscripts many explicitly catalogued as originating from the Church of Medhane ‘Alam at Magdala in 1868.
+            
+          <div style="margin-top:20px;text-align:center;">
+            <a href="#next" 
+              onclick="document.querySelector('.vco-slide-content-container .nav-next').click()" 
+              style="background:#007cba;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-size:16px;display:inline-block;">
+            Explore the Looted Items
+            </a>
+          </div>
+            `
+          },
+          location: {
+            lat: 11,
+            lon: 39,
+            zoom: 8  // zooms closer in
+          }
+        });
+
+
+        // Full StoryMapJS JSON
+        const storymapData = {
+          width: 1200,
+          height: 800,
+          storymap: {
+            language: "en",
+            map_type: "osm:standard",
+            slides: slides
+          },
+
+        };
+
+        // Initialize StoryMap
+        const storymap = new KLStoryMap.StoryMap('storymap', storymapData, {});
+        window.onresize = () => storymap.updateDisplay();
+
+      } catch (error) {
+        console.error("Error loading StoryMap:", error);
+        document.getElementById('storymap').innerHTML = "<p>Failed to load map. Check console.</p>";
+      }
+    }
+
+    // Run the initialization
+    initStoryMap();
+  </script>
+</body>
+</html>

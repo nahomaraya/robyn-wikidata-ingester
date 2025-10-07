@@ -4,16 +4,19 @@ import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '@nestjs/config';
 import { StateService } from '../state/state.service';
 
+
+
+
 @Injectable()
 export class SparqlService {
   private readonly logger = new Logger(SparqlService.name);
   private sparqlUrl: string = 'https://query.wikidata.org/sparql';
 
   constructor(
-    private readonly httpService: HttpService, 
+    private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly stateService: StateService
-  ) {}
+  ) { }
 
   /**
    * Generic SPARQL executor
@@ -48,7 +51,7 @@ export class SparqlService {
    */
   async queryItems(): Promise<any[]> {
     const cacheKey = 'sparql:queryItems';
-    
+
     // Try to get from cache first
     const cachedResult = await this.stateService.cacheGet<any[]>(cacheKey);
     if (cachedResult) {
@@ -67,26 +70,26 @@ export class SparqlService {
         SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
       }
     `;
-    
+
     const result = await this.runQuery(sparqlQuery);
-    
+
     // Cache the result for 1 hour (3600 seconds)
     await this.stateService.cacheSet(cacheKey, result, 3600);
     this.logger.log('Cached SPARQL query results');
-    
+
     return result;
   }
 
   /**
    * Dynamic query with filters
    */
- 
+
   async queryItemsWithFilters(
     year?: string,
     timePeriod: string = 'Q947667', // default: Battle of Magdala
   ): Promise<any[]> {
     const cacheKey = `sparql:queryItems:${year || 'all'}:${timePeriod}`;
-    
+
     // Try to get from cache first
     const cachedResult = await this.stateService.cacheGet<any[]>(cacheKey);
     if (cachedResult) {
@@ -95,7 +98,7 @@ export class SparqlService {
     }
 
     const filterYear = year ? `FILTER(YEAR(?time) = ${year})` : '';
-  
+
     const sparqlQuery = `
       SELECT ?item ?itemLabel ?itemDescription
       WHERE {
@@ -108,22 +111,18 @@ export class SparqlService {
     `;
 
     const result = await this.runQuery(sparqlQuery);
-    
+
     // Cache the result for 1 hour (3600 seconds)
     await this.stateService.cacheSet(cacheKey, result, 3600);
     this.logger.log('Cached SPARQL query results with filters');
-    
+
     return result;
   }
-  
-  
 
-  /**
-   * Get human-readable label for a Wikidata entity
-   */
+
   async getItemName(itemId: string): Promise<string> {
     const cacheKey = `sparql:getItemName:${itemId}`;
-    
+
     // Try to get from cache first
     const cachedResult = await this.stateService.cacheGet<string>(cacheKey);
     if (cachedResult) {
@@ -140,11 +139,43 @@ export class SparqlService {
     `;
     const bindings = await this.runQuery(sparqlQuery);
     const result = bindings[0]?.itemLabel?.value ?? '';
-    
+
     // Cache the result for 24 hours (86400 seconds) since item names don't change often
     await this.stateService.cacheSet(cacheKey, result, 86400);
     this.logger.log(`Cached item name for ${itemId}`);
-    
+
     return result;
+  }
+
+  async getValuesFromProperty(itemId: string, propertyId: string): Promise<any[]> {
+    const sparqlQuery = `
+       SELECT DISTINCT
+  ?value ?valueLabel
+  (STRAFTER(STR(?value), "entity/") AS ?valueQID)
+  ?valueDescription
+  ?start_time ?end_time ?point_in_time
+WHERE {
+  VALUES ?item { wd:${itemId} }   # your item
+  VALUES ?prop { p:${propertyId} }        # your property (here: "has cause")
+
+  # Find all statements for that property
+  ?item ?prop ?statement .
+  ?statement ps:${propertyId} ?value .
+  
+  OPTIONAL { ?value schema:description ?valueDescription. 
+             FILTER(LANG(?valueDescription) = "en") }
+#   # Extract time qualifiers (if present)
+#   OPTIONAL { ?statement pq:P580 ?start_time. }     # start time
+#   OPTIONAL { ?statement pq:P582 ?end_time. }       # end time
+#   OPTIONAL { ?statement pq:P585 ?point_in_time. }  # point in time
+
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+}
+ORDER BY ASC(COALESCE(?point_in_time, ?start_time, ?end_time))
+    `;
+
+    const bindings = await this.runQuery(sparqlQuery);
+    // const result = bindings[0]?.itemLabel?.value ?? '';
+    return bindings;
   }
 }

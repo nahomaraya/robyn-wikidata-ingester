@@ -75,6 +75,56 @@ export class CollectionService {
 
   }
 
+  private async getValueDetails(items: any[]): Promise<any[]> {
+    const itemPromises = items.map(async (item) => {
+      try {
+        const qid = item.valueQID?.value ?? ''; // "Q135515584"
+        const name = item.valueLabel?.value ?? '';
+        const desc = item.valueDescription?.value ?? '';
+
+        // Get full statements from Wikidata for this item
+        const statements = await this.wikidataService.getItemStatements(qid);
+        const identifier = await this.getFirstItemIdentifier(qid, statements);
+        const location: LocationInfo | null = await this.wikidataService.getItemLocation(statements);
+        const date = await this.wikidataService.getItemDate(statements);
+        // Extract P18 image name and resolve to Commons URLs
+        const imageName = statements[this.configService.get('wikidata.imagePropertyId')]?.[0]?.value?.content ?? null;
+        let imageInfo: CommonsImageInfo | { error: string } | null = null;
+        if (imageName) {
+          imageInfo = await this.commonsService.getImageByName(imageName);
+        }
+
+        return {
+          id: qid,
+          name,
+          desc,
+          location,
+          date,
+          image: imageInfo,
+          identifier,
+        };
+      } catch (err) {
+        this.logger.error(`Error ingesting item ${item.item.value}: ${err.message}`);
+        return null; // or { error: err.message } if you want to keep track
+      }
+    });
+
+    // Wait for all promises to resolve in parallel
+    const results = await Promise.all(itemPromises);
+    const filtered = results.filter((r) => r !== null);
+
+    // Sort by date (descending: newest first)
+    filtered.sort((a, b) => {
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+
+  return filtered;
+
+  }
+
   private async getFirstItemIdentifier(qid: string, statements: any): Promise<string | null> {
     const identifiers = await this.wikidataService.extractIdentifiers(statements);
 
@@ -137,7 +187,10 @@ export class CollectionService {
     return this.getItemDetails(await items);
   }
 
-
+  async getMultipleValue(itemId?: string, propertyId?: string){
+    const items = await this.sparqlService.getValuesFromProperty(itemId??'', propertyId??'');
+    return this.getValueDetails(items);
+  }
 
   async getLootedItems(): Promise<Collection[]> {
     const items = await this.sparqlService.queryItems();

@@ -3,6 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 
+interface LocationInfo {
+  locationName: string;
+  latitude: string,
+  longitude: string,
+}
+
 @Injectable()
 export class WikidataService {
   private readonly logger = new Logger(WikidataService.name);
@@ -52,6 +58,145 @@ export class WikidataService {
       throw new HttpException('Failed to fetch access token', 500);
     }
   }
+
+  // private async getItemDescription(qid: string): Promise<string | null> {
+  //   try {
+  //     const itemData = await this.wikidataService.getItemStatements(qid);
+  
+  //     // Fallback — some items may have descriptions from a different call
+  //     const fullItem = await this.wikidataService.getItemName(qid);
+  
+  //     // Prefer the 'en' description if available
+  //     return (
+  //       itemData?.descriptions?.en?.value ??
+  //       fullItem?.descriptions?.en?.value ??
+  //       null
+  //     );
+  //   } catch (error) {
+  //     this.logger.warn(`Failed to fetch description for ${qid}: ${error.message}`);
+  //     return null;
+  //   }
+  // }
+ 
+  async getItemDate(statements): Promise<string | null> {
+    try {
+      const datePropertyCandidates = [
+        'P580', // start time
+        'P582', // end time
+        'P585', // point in time
+        'P571', // inception
+        'P569', // date of birth (for people)
+        'P570', // date of death
+        'P577'
+      ];
+  
+      for (const propId of datePropertyCandidates) {
+        const dateStatement = statements[propId]?.[0];
+        const dateValue = dateStatement?.value?.content ?? null;
+        if (dateValue) {
+          const parsedDate = this.parseWikidataDate(dateValue);
+          if (parsedDate) {
+            return parsedDate.toISOString();
+          }
+        }
+      }
+  
+      return null; // No date found
+    } catch (error) {
+      this.logger.warn(`Failed to fetch date for: ${error.message}`);
+      return null;
+    }
+  }
+
+  
+  private parseWikidataDate(dateValue: any): Date | null {
+    try {
+      let timeString: string;
+  
+      // Wikidata encodes time as an object with a `time` field (e.g., { time: '+1917-01-01T00:00:00Z', precision: 9 })
+      if (typeof dateValue === 'object' && dateValue.time) {
+        timeString = dateValue.time;
+      } 
+      // In some rare cases, it's just a plain string
+      else if (typeof dateValue === 'string') {
+        timeString = dateValue;
+      } 
+      else {
+        this.logger.warn(`Unexpected date value format: ${JSON.stringify(dateValue)}`);
+        return null;
+      }
+  
+      // Remove leading "+" if present
+      let cleanDate = timeString.startsWith('+') ? timeString.substring(1) : timeString;
+  
+      // Replace invalid month/day zeros with defaults
+      cleanDate = cleanDate.replace(/-00-/g, '-01-').replace(/-00T/g, '-01T');
+  
+      const date = new Date(cleanDate);
+      if (isNaN(date.getTime())) {
+        this.logger.warn(`Invalid date format: ${timeString}`);
+        return null;
+      }
+  
+      return date;
+    } catch (error) {
+      this.logger.warn(`Failed to parse date: ${error.message}`);
+      return null;
+    }
+  }
+  
+
+  async getItemLocation(statements): Promise<LocationInfo | null> {
+    try {
+
+  
+      // Possible property IDs for location (expandable)
+      const locationPropertyCandidates = [
+        this.configService.get('wikidata.locationPropertyId'),   // e.g. P276
+        'P17',  // country
+        'P131', // located in the administrative territorial entity
+        'P625', // coordinate location
+        'P159', // headquarters location
+        'P495', // country of origin
+        'P1071',
+      ].filter(Boolean);
+  
+      for (const propId of locationPropertyCandidates) {
+        const locationStatement = statements[propId]?.[0];
+        if (!locationStatement) continue;
+  
+        const locationId = locationStatement.value?.content ?? null;
+        if (!locationId) continue;
+  
+        const locationName = await this.getItemName(locationId);
+        const locationDetails = await this.getItemStatements(locationId);
+        const coordinates =
+          locationDetails[this.configService.get('wikidata.coordinatesPropertyId')]?.[0]
+            ?.value?.content ?? null;
+  
+        if (coordinates) {
+          return {
+            locationName,
+            latitude: coordinates.latitude?.toString() ?? '',
+            longitude: coordinates.longitude?.toString() ?? '',
+          };
+        } else {
+          // If coordinates not available, still return the name
+          return {
+            locationName,
+            latitude: '',
+            longitude: '',
+          };
+        }
+      }
+  
+      return null; // No location found
+    } catch (error) {
+      this.logger.warn(`Failed to fetch location: ${error.message}`);
+      return null;
+    }
+  }
+  
 
   async getItemName(itemId: string): Promise<string> {
     const accessToken = await this.fetchAccessToken();
@@ -111,7 +256,6 @@ export class WikidataService {
 
   async extractIdentifiers(statements: any): Promise<{ property: string; value: string; url?: string }[]> {
     const identifiers: { property: string; value: string; url?: string }[] = [];
-
     for (const [prop, values] of Object.entries(statements)) {
         for (const v of values as any[]) {
             // 1️⃣ Check if mainsnak itself is a URL
@@ -147,10 +291,7 @@ export class WikidataService {
 
   
   async getItemIdFromName(name: string, language: string = 'en'): Promise<string | null> {
-    const url = `https://www.wikidata.org/w/api.php`;
-  
-    this.logger.log(`Searching Wikidata for item with name: "${name}"`);
-  
+    const url = `https://www.wikidata.org/w/api.php`;  
     try {
       const response = await firstValueFrom(
         this.httpService.get(url, {
