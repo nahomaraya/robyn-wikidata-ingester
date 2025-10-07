@@ -43,15 +43,33 @@
 
     async function fetchNameForId(id) {
       if (!id) return '';
+      console.log('Fetching name for ID:', id);
       try {
-        const res = await fetch(nameApiBase + encodeURIComponent(id));
-        if (!res.ok) return '';
-        const data = await res.json();
-        // Expecting a plain string or an object with { name }
-        if (typeof data === 'string') return data;
-        if (data && typeof data.name === 'string') return data.name;
+        const url = nameApiBase + encodeURIComponent(id);
+        console.log('Fetching from URL:', url);
+        const res = await fetch(url);
+        console.log('Response status:', res.status);
+        if (!res.ok) {
+          console.log('Response not ok:', res.status, res.statusText);
+          return '';
+        }
+        // Try to get text first, then parse as JSON if needed
+        const text = await res.text();
+        console.log('Response text:', text);
+        
+        // Try to parse as JSON first
+        try {
+          const data = JSON.parse(text);
+          if (typeof data === 'string') return data;
+          if (data && typeof data.name === 'string') return data.name;
+        } catch (jsonError) {
+          // If JSON parsing fails, treat as plain text
+          console.log('Not JSON, treating as plain text:', text);
+          return text;
+        }
         return '';
-      } catch (_) {
+      } catch (error) {
+        console.log('Error fetching name:', error);
         return '';
       }
     }
@@ -153,8 +171,8 @@
       slides.unshift({
         type: "overview",
         text: {
-          headline: "Wikidata TimeTrail. Visualize the history of an item powered by Wikidata and StorymapJS!",
-          text: `The default example has to do with events that caused the dissolution of the Soviet Union. Add an itemId and PropertyId and see where the trail goes! Current map shows:  ${(selectedItemId || selectedPropertyId) ? `<br><br><strong>Current selection:</strong> ${selectedItemId ? `Item <code>${selectedItemId}</code> with name ${selectedItemName ? ` (${selectedItemName})` : ''}` : ''}${(selectedItemId && selectedPropertyId) ? ' · ' : ''}${selectedPropertyId ? `Property <code>${selectedPropertyId}</code>${selectedPropertyName ? ` (${selectedPropertyName})` : ''}` : ''}` : ''}`
+          headline: "Wikidata TimeTrail — Visualize the history of any Wikidata item with StoryMapJS!",
+          text: `Enter an Item ID and Property ID to trace your own timeline — and see where the data leads! Current selection shows:  ${(selectedItemId || selectedPropertyId) ? `<br><br><strong>Current selection:</strong> ${selectedItemId ? `Item <code>${selectedItemId}</code> with name ${selectedItemName ? ` (${selectedItemName})` : ''}` : ''}${(selectedItemId && selectedPropertyId) ? ' · ' : ''}${selectedPropertyId ? `Property <code>${selectedPropertyId}</code>${selectedPropertyName ? ` (${selectedPropertyName})` : ''}` : ''}` : ''}`
         },
         location: {
           lat: 11,

@@ -20,6 +20,11 @@
     // Your API endpoint
     const apiUrl = 'https//localhost:3000/collection/items';
 
+    // Read URL parameters for dynamic overview text
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemId = urlParams.get('itemId') || '';
+    const propertyId = urlParams.get('property') || urlParams.get('propertyId') || '';
+
     // Helper function to check if a URL can be embedded in iframe
     async function canEmbedUrl(url) {
       try {
@@ -138,6 +143,15 @@
             Explore the Looted Items
             </a>
           </div>
+          ${ (itemId || propertyId) 
+              ? `<div style="margin-top:12px;text-align:center;">
+                  <strong>Current selection:</strong> 
+                  ${itemId ? `Item <code>${itemId}</code>` : ''}
+                  ${itemId && propertyId ? ' · ' : ''}
+                  ${propertyId ? `Property <code>${propertyId}</code>` : ''}
+                </div>` 
+              : ''
+            }
             `
           },
           location: {
