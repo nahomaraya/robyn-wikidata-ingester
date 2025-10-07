@@ -11,6 +11,23 @@
   <style>
     body { margin: 0; padding: 0; }
     #storymap { width: 100%; height: 800px; } /* Required height */
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .loading {
+      animation: spin 1s linear infinite;
+    }
+    
+    .loading #buttonText {
+      display: none;
+    }
+    
+    .loading #loadingSpinner {
+      display: inline !important;
+    }
   </style>
 </head>
 <body>
@@ -26,9 +43,10 @@
         <input id="propertyId" name="propertyId" type="text" value="P828" placeholder="e.g. P828" 
                style="padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:140px;">
       </div>
-      <button type="submit" 
-              style="background:#007cba;color:white;padding:10px 16px;border:none;border-radius:6px;font-size:14px;cursor:pointer;">
-        Load
+      <button type="submit" id="loadButton"
+              style="background:#007cba;color:white;padding:10px 16px;border:none;border-radius:6px;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+        <span id="buttonText">Load</span>
+        <span id="loadingSpinner" style="display:none;">⟳</span>
       </button>
     </form>
   </div>
@@ -184,7 +202,26 @@
       return slides;
     }
 
+    function setLoadingState(loading) {
+      const button = document.getElementById('loadButton');
+      const buttonText = document.getElementById('buttonText');
+      const loadingSpinner = document.getElementById('loadingSpinner');
+      
+      if (loading) {
+        button.classList.add('loading');
+        button.disabled = true;
+        button.style.cursor = 'not-allowed';
+        button.style.opacity = '0.7';
+      } else {
+        button.classList.remove('loading');
+        button.disabled = false;
+        button.style.cursor = 'pointer';
+        button.style.opacity = '1';
+      }
+    }
+
     async function initStoryMap() {
+      setLoadingState(true);
       try {
         // Fetch filtered items from API
         const itemId = (document.getElementById('itemId')).value || '';
@@ -228,6 +265,8 @@
       } catch (error) {
         console.error("Error loading StoryMap:", error);
         document.getElementById('storymap').innerHTML = "<p>Failed to load map. Check console.</p>";
+      } finally {
+        setLoadingState(false);
       }
     }
     
