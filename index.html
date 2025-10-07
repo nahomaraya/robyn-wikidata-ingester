@@ -39,7 +39,7 @@
     // API endpoint base for filtering
     const filterApiBase = 'https://robyn-wikidata-ingester.vercel.app/collection/multiitems';
     // API endpoint base for resolving labels
-    const nameApiBase = 'http://localhost:3000/wikidata/itemName/';
+    const nameApiBase = 'https://robyn-wikidata-ingester.vercel.app/wikidata/itemName/';
 
     async function fetchNameForId(id) {
       if (!id) return '';
