@@ -1,7 +1,7 @@
 import { Module, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Redis } from '@upstash/redis';
-import { createRedisClient } from 'src/lib/redis-client';
+import { createRedisClient } from '../lib/redis-client';
 import { StateService } from './state.service';
 
 @Module({

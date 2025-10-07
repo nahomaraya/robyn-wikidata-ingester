@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { CollectionController } from './collection.controller';
 import { CollectionService } from './collection.service';
 import { HttpModule } from '@nestjs/axios';
-import { WikidataModule } from 'src/wikidata/wikidata.module';
+import { WikidataModule } from '../wikidata/wikidata.module';
 
 @Module({
   imports: [HttpModule, WikidataModule],
