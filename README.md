@@ -1,6 +1,6 @@
-# Robyn Wikidata Ingester
+# Wikidata TimeTrail
 
-A NestJS service for ingesting cultural heritage data from Wikidata and Wikimedia Commons.
+Visualize the history of an item powered by Wikidata and StorymapJS
 
 ## Quick Start
 
