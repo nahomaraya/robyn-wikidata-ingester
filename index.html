@@ -212,11 +212,11 @@
           headline: "Wikidata TimeTrail — Visualize the history of any Wikidata item with StoryMapJS!",
           text: `Enter an Item ID and Property ID to trace your own timeline — and see where the data leads! Current selection shows:  ${(selectedItemId || selectedPropertyId) ? `<br><br><strong>Current selection:</strong> ${selectedItemId ? `Item <code>${selectedItemId}</code> with name ${selectedItemName ? ` (${selectedItemName})` : ''}` : ''}${(selectedItemId && selectedPropertyId) ? ' · ' : ''}${selectedPropertyId ? `Property <code>${selectedPropertyId}</code>${selectedPropertyName ? ` (${selectedPropertyName})` : ''}` : ''}` : ''}`
         },
-        location: {
-          lat: 11,
-          lon: 39,
-          zoom: 8  // zooms closer in
-        }
+        // location: {
+        //   lat: 11,
+        //   lon: 39,
+        //   zoom: 8  // zooms closer in
+        // }
       });
 
       return slides;
