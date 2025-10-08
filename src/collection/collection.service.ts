@@ -2,7 +2,7 @@ import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { WikidataService } from '../wikidata/wikidata.service';
 import { CommonsService, CommonsImageInfo } from '../wikidata/commons.service';
 import { SparqlService } from '../wikidata/sparql.service';
-import { Collection } from './collection.interface';
+import { Collection, SparqlItemResult, SparqlValueResult, ValueDetailsResult } from './collection.interface';
 import { ConfigService } from '@nestjs/config';
 
 interface LocationInfo {
@@ -10,6 +10,7 @@ interface LocationInfo {
   latitude: string,
   longitude: string,
 }
+
 
 @Injectable()
 export class CollectionService {
@@ -23,10 +24,10 @@ export class CollectionService {
     private readonly configService: ConfigService
   ) { }
 
-  private async getItemDetails(items: any[]): Promise<Collection[]> {
+  private async getItemDetails(items: SparqlItemResult[]): Promise<Collection[]> {
     const itemPromises = items.map(async (item) => {
       try {
-        const qid = item.item.value.split('/').pop(); // "Q135515584"
+        const qid = item.item.value.split('/').pop()!; // "Q135515584"
         const name = item.itemLabel?.value ?? '';
         const desc = item.itemDescription?.value ?? '';
 
@@ -75,7 +76,7 @@ export class CollectionService {
 
   }
 
-  private async getValueDetails(items: any[]): Promise<any[]> {
+  private async getValueDetails(items: SparqlValueResult[]): Promise<ValueDetailsResult[]> {
     const itemPromises = items.map(async (item) => {
       try {
         const qid = item.valueQID?.value ?? ''; // "Q135515584"
@@ -104,7 +105,7 @@ export class CollectionService {
           identifier,
         };
       } catch (err) {
-        this.logger.error(`Error ingesting item ${item.item.value}: ${err.message}`);
+        this.logger.error(`Error ingesting item ${item.valueQID?.value}: ${err.message}`);
         return null; // or { error: err.message } if you want to keep track
       }
     });
