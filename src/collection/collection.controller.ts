@@ -26,4 +26,12 @@ export class CollectionController {
     ) {
       return this.collectionService.getMultipleValue(itemId, propertyId);
     }
+
+    @Get('multivalues')
+    async getMultipleValues(
+      @Query('itemId') itemId?: string,
+   
+    ) {
+      return this.collectionService.getMultipeProps(itemId? itemId:'');
+    }
 }

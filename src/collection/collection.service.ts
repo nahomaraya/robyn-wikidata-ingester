@@ -33,6 +33,7 @@ export class CollectionService {
 
         // Get full statements from Wikidata for this item
         const statements = await this.wikidataService.getItemStatements(qid);
+        const multiValueProps = await this.wikidataService.getMultiValueProperties(statements);
         const identifier = await this.getFirstItemIdentifier(qid, statements);
         const locationId = statements[this.configService.get('wikidata.locationPropertyId')]?.[0]?.value?.content ?? null;
         let location: LocationInfo | null = null;
@@ -196,6 +197,14 @@ export class CollectionService {
   async getLootedItems(): Promise<Collection[]> {
     const items = await this.sparqlService.queryItems();
     return this.getItemDetails(items);
+  }
+
+  async getMultipeProps(itemId:string){
+    const statements = await this.wikidataService.getItemStatements(itemId);
+    
+    
+    const multiValueProps = await this.wikidataService.getMultiValueProperties(statements,itemId);
+    return multiValueProps;
   }
 
 

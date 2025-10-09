@@ -2,6 +2,7 @@ import { Injectable, HttpException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { SparqlService } from './sparql.service';
 
 interface LocationInfo {
   locationName: string;
@@ -18,9 +19,11 @@ export class WikidataService {
   private tokenExpiry: number | null = null;
   private wikidataUrl: string = 'https://www.wikidata.org/w/rest.php';
 
+
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
+    private readonly sparqlService: SparqlService
   ) {
     this.clientId = this.configService.get<string>('wikidata.clientId') ?? '';
     this.clientSecret = this.configService.get<string>('wikidata.clientSecret') ?? '';
@@ -329,5 +332,67 @@ export class WikidataService {
       throw new HttpException('Failed to fetch Wikidata itemId from name', 500);
     }
   }
+
+  async getMultiValueProperties(
+ 
+    statements: Record<string, any[]>,
+    itemId?: string,
+  ): Promise<string[]> {
+    try {
+      if (!statements || typeof statements !== 'object') {
+        this.logger.warn('Invalid statements input');
+        return [];
+      }
+  
+      const targetId = 'Q18635217'; // instance/subclass check target
+  
+      // 🔹 Helper: checks if an entity is an instance/subclass of Q18635217
+      const isSubclassOrInstanceOf = async (entityId: string, targetId: string): Promise<boolean> => {
+        try {
+          const entityStatements = await this.getItemStatements(entityId);
+          const instanceOf = entityStatements['P31'] || []; // instance of
+          const subclassOf = entityStatements['P279'] || []; // subclass of
+  
+          const relatedIds = [
+            ...instanceOf.map(v => v.mainsnak?.datavalue?.value?.id),
+            ...subclassOf.map(v => v.mainsnak?.datavalue?.value?.id),
+          ].filter(Boolean);
+  
+          return relatedIds.includes(targetId);
+        } catch (e) {
+          this.logger.warn(`Relation check failed for ${entityId}: ${e.message}`);
+          return false;
+        }
+      };
+  
+      const multiValueProps: string[] = [];
+  
+      // 🔹 Loop through all properties in the statements
+      for (const [propId] of Object.entries(statements)) {
+    
+        const isRelevant = await isSubclassOrInstanceOf(propId, targetId);
+        if (!isRelevant) continue;
+
+        const values = await this.sparqlService.getValuesFromProperty(itemId?itemId:'', propId);
+
+        // Extract all entity QIDs from SPARQL bindings
+        const entityIds = values
+          .map(v => v.valueQID?.value)
+          .filter((id): id is string => Boolean(id));
+  
+        // ✅ Step 3: Only add property if it has > 1 distinct entity values
+        const distinctEntityIds = [...new Set(entityIds)];
+        if (distinctEntityIds.length > 1) {
+          multiValueProps.push(propId);
+        }
+      }
+      return multiValueProps;
+    } catch (error) {
+      this.logger.error(`Failed to find multi-value properties: ${error.message}`, error.stack);
+      return [];
+    }
+  }
+  
+  
   
 }
