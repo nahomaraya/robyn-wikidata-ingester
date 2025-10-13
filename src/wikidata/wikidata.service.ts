@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { SparqlService } from './sparql.service';
+import pLimit from 'p-limit';
 
 interface LocationInfo {
   locationName: string;
@@ -416,21 +417,9 @@ export class WikidataService {
     }
   }
 
-  async getMultiValueProperties(
-
-    statements: Record<string, any[]>,
-    itemId?: string,
-  ): Promise<string[]> {
-    try {
-      if (!statements || typeof statements !== 'object') {
-        this.logger.warn('Invalid statements input');
-        return [];
-      }
-
-      const targetIds = ['Q18635217', 'Q18615777','Q22964785', 'Q51077473','P793', 'P1344','P155','P156','Q18647515']; // your list of target types
-
+  
       // 🔹 Helper: check if entity is instance/subclass of *any* of these targets
-      const isSubclassOrInstanceOf = async (
+  private isSubclassOrInstanceOf = async (
         entityId: string,
         targetIds: string[],
       ): Promise<boolean> => {
@@ -454,30 +443,44 @@ export class WikidataService {
           this.logger.warn(`Relation check failed for ${entityId}: ${e.message}`);
           return false;
         }
-      };
+  };
+  
+  async getMultiValueProperties(
 
-
-      const multiValueProps: string[] = [];
-
-      // 🔹 Loop through all properties in the statements
-      for (const [propId] of Object.entries(statements)) {
-
-        const isRelevant = await isSubclassOrInstanceOf(propId, targetIds);
-        if (!isRelevant) continue;
-
-        const values = await this.sparqlService.getValuesFromProperty(itemId ? itemId : '', propId);
-
-        // Extract all entity QIDs from SPARQL bindings
-        const entityIds = values
-          .map(v => v.valueQID?.value)
-          .filter((id): id is string => Boolean(id));
-
-        // ✅ Step 3: Only add property if it has > 1 distinct entity values
-        const distinctEntityIds = [...new Set(entityIds)];
-        if (distinctEntityIds.length > 1) {
-          multiValueProps.push(propId);
-        }
+    statements: Record<string, any[]>,
+    itemId?: string,
+  ): Promise<string[]> {
+    try {
+      if (!statements || typeof statements !== 'object') {
+        this.logger.warn('Invalid statements input');
+        return [];
       }
+
+      const targetIds = ['Q18635217', 'Q18615777','Q22964785', 'Q51077473','P793', 'P1344','P155','P156','Q18647515']; // your list of target types
+
+
+      const limit = pLimit(5); // 5 concurrent requests at a time
+
+      //use array of tasks instead of loops
+      const tasks = Object.entries(statements).map(([propId]) =>
+        limit(async () => {
+      const isRelevant = await this.isSubclassOrInstanceOf(propId, targetIds);
+      if (!isRelevant) return null;
+
+      const values = await this.sparqlService.getValuesFromProperty(itemId ?? '', propId);
+      const entityIds = values
+      .map(v => v.valueQID?.value)
+      .filter((id): id is string => Boolean(id));
+
+      const distinctEntityIds = [...new Set(entityIds)];
+      return distinctEntityIds.length > 1 ? propId : null;
+    }),
+  );
+
+      const results = await Promise.allSettled(tasks);
+      const multiValueProps = results
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => (r as PromiseFulfilledResult<string>).value);
       return multiValueProps;
     } catch (error) {
       this.logger.error(`Failed to find multi-value properties: ${error.message}`, error.stack);

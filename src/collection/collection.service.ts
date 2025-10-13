@@ -4,6 +4,7 @@ import { CommonsService, CommonsImageInfo } from '../wikidata/commons.service';
 import { SparqlService } from '../wikidata/sparql.service';
 import { Collection, SparqlItemResult, SparqlValueResult, ValueDetailsResult } from './collection.interface';
 import { ConfigService } from '@nestjs/config';
+import pLimit from 'p-limit';
 
 interface LocationInfo {
   locationName: string;
@@ -78,7 +79,8 @@ export class CollectionService {
   }
 
   private async getValueDetails(items: SparqlValueResult[]): Promise<ValueDetailsResult[]> {
-    const itemPromises = items.map(async (item) => {
+    const limit = pLimit(5);
+    const itemPromises = items.map(async (item) =>  limit(async () =>{
       try {
         const qid = item.valueQID?.value ?? ''; // "Q135515584"
         const name = item.valueLabel?.value ?? '';
@@ -109,9 +111,9 @@ export class CollectionService {
         this.logger.error(`Error ingesting item ${item.valueQID?.value}: ${err.message}`);
         return null; // or { error: err.message } if you want to keep track
       }
-    });
-
-    // Wait for all promises to resolve in parallel
+    })
+  
+    );
     const results = await Promise.all(itemPromises);
     const filtered = results.filter((r) => r !== null);
 

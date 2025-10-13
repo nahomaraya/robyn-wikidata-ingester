@@ -94,6 +94,18 @@
     // API endpoint base for fetching properties
     const propertiesApiBase = 'http://localhost:3000/collection/multiple-props';
 
+    function renderPlaceholder(message) {
+      const container = document.getElementById('storymap');
+      container.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;">
+          <div style="text-align:center;max-width:680px;padding:24px;color:#444;">
+            <h3 style="margin:0 0 8px 0;font-weight:600;color:#222;">Wikidata TimeTrail — Visualize the history of any Wikidata item with StoryMapJS!</h3>
+            <p style="margin:0 0 8px 0;">${message}</p>
+          </div>
+        </div>
+      `;
+    }
+
     async function fetchNameForId(id) {
       if (!id) return '';
       console.log('Fetching name for ID:', id);
@@ -309,33 +321,40 @@
     }
 
     async function initStoryMap() {
+      // Validate inputs first; if missing, render helpful placeholder and bail
+      const itemId = (document.getElementById('itemId')).value || '';
+      const propertyId = (document.getElementById('propertyId')).value || '';
+      if (!itemId || !propertyId) {
+        renderPlaceholder('Enter an Item ID and select a Property to fetch a timetrail.');
+        return;
+      }
+
       setLoadingState(true);
       try {
-        // Fetch filtered items from API
-        const itemId = (document.getElementById('itemId')).value || '';
-        const propertyId = (document.getElementById('propertyId')).value || '';
-        
-        // Check if both itemId and propertyId are provided
-        if (!itemId || !propertyId) {
-          throw new Error('Please enter an Item ID and select a Property ID');
-        }
-        
+        // Resolve friendly names in parallel
         const [itemName, propertyName] = await Promise.all([
           fetchNameForId(itemId),
           fetchNameForId(propertyId)
         ]);
+
+        // Fetch data
         const url = `${filterApiBase}?item=${encodeURIComponent(itemId)}&property=${encodeURIComponent(propertyId)}`;
         const response = await fetch(url);
         if (!response.ok) {
-          throw new Error(`Request failed: ${response.status}`);
+          renderPlaceholder('We could not fetch data for this selection. Please try again.');
+          return;
         }
         const items = await response.json();
+        if (!Array.isArray(items) || items.length === 0) {
+          renderPlaceholder('No results for this selection. Try a different property.');
+          return;
+        }
 
         const slides = await createSlidesFromItems(items, itemId, propertyId, itemName, propertyName);
-        console.log('Generated slides:', slides); // Debug: log the generated slides
-
-        if (slides.length === 0) {
-          throw new Error('No valid items with location data found');
+        console.log('Generated slides:', slides);
+        if (!slides || slides.length <= 1) { // only overview slide or nothing mappable
+          renderPlaceholder('No mappable items with location data for this selection.');
+          return;
         }
 
         // Full StoryMapJS JSON
@@ -357,8 +376,8 @@
         window.onresize = () => storymap.updateDisplay();
 
       } catch (error) {
-        console.error("Error loading StoryMap:", error);
-        document.getElementById('storymap').innerHTML = "<p>Failed to load map. Check console.</p>";
+        console.error('Error loading StoryMap:', error);
+        renderPlaceholder('Could not load the map right now. Please try again.');
       } finally {
         setLoadingState(false);
       }
@@ -378,13 +397,12 @@
       fetchPropertiesForItem(itemId);
     });
 
-    // Initial load with defaults
-    // Load properties for the default item ID
+    // Initial load: fetch properties for default item (if any) and show placeholder (no API call yet)
     const defaultItemId = document.getElementById('itemId').value;
     if (defaultItemId) {
       fetchPropertiesForItem(defaultItemId);
     }
-    initStoryMap();
+    renderPlaceholder('Enter an Item ID and select a Property to fetch a timetrail.');
   </script>
 </body>
 </html>
