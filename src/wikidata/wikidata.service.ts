@@ -379,7 +379,7 @@ export class WikidataService {
         return [];
       }
 
-      const targetIds = ['Q18635217', 'Q18615777','Q22964785', 'Q51077473','P793', 'P1344','P155','P156']; // your list of target types
+      const targetIds = ['Q18635217', 'Q18615777','Q22964785', 'Q51077473','P793', 'P1344','P155','P156','Q18647515']; // your list of target types
 
       // 🔹 Helper: check if entity is instance/subclass of *any* of these targets
       const isSubclassOrInstanceOf = async (

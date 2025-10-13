@@ -34,6 +34,10 @@
     }
     
     .loading {
+      background-color: #4a9bd1 !important;
+    }
+    
+    .spinning {
       animation: spin 1s linear infinite;
     }
     
@@ -42,6 +46,10 @@
     }
     
     .loading #loadingSpinner {
+      display: inline !important;
+    }
+    
+    .loading #propertyLoadingSpinner {
       display: inline !important;
     }
   </style>
@@ -56,13 +64,18 @@
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;">
         <label for="propertyId" style="font-size:14px;color:#333;">Property ID</label>
-        <input id="propertyId" name="propertyId" type="text" value="P828" placeholder="e.g. P828" 
-               style="padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:140px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span id="propertyLoadingSpinner" style="display:none;color:#007cba;font-size:16px;">⟳</span>
+          <select id="propertyId" name="propertyId" 
+                  style="padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:140px;">
+            <option value="">Select property...</option>
+          </select>     
+        </div>
       </div>
       <button type="submit" id="loadButton"
               style="background:#007cba;color:white;padding:10px 16px;border:none;border-radius:6px;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
-        <span id="buttonText">Load</span>
-        <span id="loadingSpinner" style="display:none;">⟳</span>
+        <span id="buttonText">Fetch Timetrail!</span>
+        <span id="loadingSpinner" style="display:none;">Fetch Timetrail!</span>
       </button>
       </form>
   </div>
@@ -75,9 +88,11 @@
 
   <script>
     // API endpoint base for filtering
-    const filterApiBase = 'https://wikidata-timetrail.vercel.app/collection/multiitems';
+    const filterApiBase = 'http://localhost:3000/collection/multiple-values';
     // API endpoint base for resolving labels
-    const nameApiBase = 'https://wikidata-timetrail.vercel.app/wikidata/itemName/';
+    const nameApiBase = 'http://localhost:3000/wikidata/itemName/';
+    // API endpoint base for fetching properties
+    const propertiesApiBase = 'http://localhost:3000/collection/multiple-props';
 
     async function fetchNameForId(id) {
       if (!id) return '';
@@ -109,6 +124,59 @@
       } catch (error) {
         console.log('Error fetching name:', error);
         return '';
+      }
+    }
+
+    async function fetchPropertiesForItem(itemId) {
+      const propertyLoadingSpinner = document.getElementById('propertyLoadingSpinner');
+      const propertySelect = document.getElementById('propertyId');
+      
+      if (!itemId) {
+        // Clear dropdown if no item ID
+        propertySelect.innerHTML = '<option value="">Select property...</option>';
+        propertyLoadingSpinner.style.display = 'none';
+        return;
+      }
+
+      // Show loading spinner
+      propertyLoadingSpinner.style.display = 'inline';
+      propertyLoadingSpinner.classList.add('spinning');
+      propertySelect.disabled = true;
+
+      console.log('Fetching properties for item:', itemId);
+      try {
+        const url = `${propertiesApiBase}?itemId=${encodeURIComponent(itemId)}`;
+        console.log('Fetching properties from URL:', url);
+        const res = await fetch(url);
+        console.log('Properties response status:', res.status);
+        
+        if (!res.ok) {
+          console.log('Properties response not ok:', res.status, res.statusText);
+          return;
+        }
+        
+        const properties = await res.json();
+        console.log('Fetched properties:', properties);
+        
+        // Populate dropdown
+        propertySelect.innerHTML = '<option value="">Select property...</option>';
+        
+        if (Array.isArray(properties)) {
+          properties.forEach(property => {
+            const option = document.createElement('option');
+            option.value = property;
+            option.textContent = property;
+            propertySelect.appendChild(option);
+          });
+        }
+        
+      } catch (error) {
+        console.log('Error fetching properties:', error);
+      } finally {
+        // Hide loading spinner and re-enable dropdown
+        propertyLoadingSpinner.style.display = 'none';
+        propertyLoadingSpinner.classList.remove('spinning');
+        propertySelect.disabled = false;
       }
     }
 
@@ -246,6 +314,12 @@
         // Fetch filtered items from API
         const itemId = (document.getElementById('itemId')).value || '';
         const propertyId = (document.getElementById('propertyId')).value || '';
+        
+        // Check if both itemId and propertyId are provided
+        if (!itemId || !propertyId) {
+          throw new Error('Please enter an Item ID and select a Property ID');
+        }
+        
         const [itemName, propertyName] = await Promise.all([
           fetchNameForId(itemId),
           fetchNameForId(propertyId)
@@ -298,7 +372,18 @@
       initStoryMap();
     });
 
+    // Add event listener to item ID input to fetch properties
+    document.getElementById('itemId').addEventListener('input', (e) => {
+      const itemId = e.target.value.trim();
+      fetchPropertiesForItem(itemId);
+    });
+
     // Initial load with defaults
+    // Load properties for the default item ID
+    const defaultItemId = document.getElementById('itemId').value;
+    if (defaultItemId) {
+      fetchPropertiesForItem(defaultItemId);
+    }
     initStoryMap();
   </script>
 </body>

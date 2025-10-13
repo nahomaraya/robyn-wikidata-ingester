@@ -19,16 +19,16 @@ export class CollectionController {
       return this.collectionService.queryItemsWithFilters(year, timePeriod);
     }
 
-    @Get('multiitems')
-    async getMultipleValuesFromItem(
+    @Get('multiple-values')
+    async getMultipleValuesF(
       @Query('itemId') itemId?: string,
       @Query('propertyId') propertyId?: string, // handle single or multiple
     ) {
       return this.collectionService.getMultipleValue(itemId, propertyId);
     }
 
-    @Get('multivalues')
-    async getMultipleValues(
+    @Get('multiple-props')
+    async getMultipleProps(
       @Query('itemId') itemId?: string,
    
     ) {
