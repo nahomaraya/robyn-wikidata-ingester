@@ -145,7 +145,7 @@
 
       console.log('Fetching properties for item:', itemId);
       try {
-        const url = `${propertiesApiBase}?itemId=${encodeURIComponent(itemId)}`;
+        const url = `${propertiesApiBase}?item=${encodeURIComponent(itemId)}`;
         console.log('Fetching properties from URL:', url);
         const res = await fetch(url);
         console.log('Properties response status:', res.status);
@@ -324,7 +324,7 @@
           fetchNameForId(itemId),
           fetchNameForId(propertyId)
         ]);
-        const url = `${filterApiBase}?itemId=${encodeURIComponent(itemId)}&propertyId=${encodeURIComponent(propertyId)}`;
+        const url = `${filterApiBase}?item=${encodeURIComponent(itemId)}&property=${encodeURIComponent(propertyId)}`;
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`Request failed: ${response.status}`);

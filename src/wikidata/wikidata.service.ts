@@ -332,6 +332,54 @@ export class WikidataService {
   }
 
 
+  async getEntityIdFromName(
+    name: string,
+    language: string = 'en',
+    entityType: 'item' | 'property' = 'item', // can be 'item' or 'property'
+  ): Promise<string | null> {
+    const url = `https://www.wikidata.org/w/api.php`;
+  
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          params: {
+            action: 'wbsearchentities',
+            search: name,
+            language,
+            format: 'json',
+            type: entityType,
+            limit: 1, // top match only
+          },
+        }),
+      );
+  
+      const searchResults = response.data?.search || [];
+  
+      if (searchResults.length === 0) {
+        this.logger.warn(
+          `No Wikidata ${entityType} found for name: "${name}"`,
+        );
+        return null;
+      }
+  
+      const entityId = searchResults[0].id; // e.g. "Q42" or "P31"
+      this.logger.log(
+        `Found Wikidata ${entityType} for "${name}": ${entityId}`,
+      );
+  
+      return entityId;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch Wikidata ${entityType}Id for "${name}": ${error.message}`,
+        error.stack,
+      );
+      throw new HttpException(
+        `Failed to fetch Wikidata ${entityType}Id from name`,
+        500,
+      );
+    }
+  }
+  
   async getItemIdFromName(name: string, language: string = 'en'): Promise<string | null> {
     const url = `https://www.wikidata.org/w/api.php`;
     try {

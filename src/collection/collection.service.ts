@@ -201,10 +201,11 @@ export class CollectionService {
 
   async getMultipeProps(itemId:string){
     const statements = await this.wikidataService.getItemStatements(itemId);
-    
-    
     const multiValueProps = await this.wikidataService.getMultiValueProperties(statements,itemId);
-    return multiValueProps;
+    const names = await Promise.all(
+      multiValueProps.map((propId) => this.wikidataService.getItemName(propId))
+    );
+    return names;
   }
 
 

@@ -1,10 +1,11 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { CollectionService } from './collection.service';
+import { WikidataService } from 'src/wikidata/wikidata.service';
 
 @Controller('collection')
 export class CollectionController {
 
-    constructor(private readonly collectionService: CollectionService){}
+    constructor(private readonly collectionService: CollectionService, private readonly wikidataService: WikidataService){}
 
     @Get('items')
     async getLootedItems() {
@@ -21,17 +22,20 @@ export class CollectionController {
 
     @Get('multiple-values')
     async getMultipleValuesF(
-      @Query('itemId') itemId?: string,
-      @Query('propertyId') propertyId?: string, // handle single or multiple
+      @Query('item') item?: string,
+      @Query('property') property?: string, // handle single or multiple
     ) {
-      return this.collectionService.getMultipleValue(itemId, propertyId);
+      const itemId = await this.wikidataService.getEntityIdFromName(item?item:'');
+      const propertyId = await this.wikidataService.getEntityIdFromName(property?property:'', 'en', 'property');
+      return this.collectionService.getMultipleValue(itemId ?? undefined, propertyId ?? undefined);
     }
 
     @Get('multiple-props')
     async getMultipleProps(
-      @Query('itemId') itemId?: string,
+      @Query('item') item?: string,
    
     ) {
+      const itemId = await this.wikidataService.getItemIdFromName(item?item:'');
       return this.collectionService.getMultipeProps(itemId? itemId:'');
     }
 }
