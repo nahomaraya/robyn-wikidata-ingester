@@ -82,7 +82,7 @@ export class CollectionService {
     const limit = pLimit(5);
     const itemPromises = items.map(async (item) =>  limit(async () =>{
       try {
-        const qid = item.valueQID?.value ?? ''; // "Q135515584"
+        const qid = item.valueQID?.value ?? ''; 
         const name = item.valueLabel?.value ?? '';
         const desc = item.valueDescription?.value ?? '';
 
